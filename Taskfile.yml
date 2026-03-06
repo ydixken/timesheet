@@ -1,0 +1,127 @@
+version: '3'
+
+dotenv: ['.env']
+
+tasks:
+  dev:
+    desc: "Start DB, then run backend + frontend (use separate terminals)"
+    deps: [db:up]
+    cmds:
+      - echo "DB started. Run 'task backend:dev' and 'task frontend:dev' in separate terminals."
+
+  db:up:
+    desc: "Start PostgreSQL container"
+    cmds:
+      - docker compose up -d db
+
+  db:down:
+    desc: "Stop PostgreSQL container"
+    cmds:
+      - docker compose down
+
+  db:reset:
+    desc: "Wipe DB volume and re-migrate"
+    cmds:
+      - docker compose down db -v
+      - task: db:up
+      - task: db:migrate
+
+  db:migrate:
+    desc: "Run pending Drizzle migrations"
+    dir: apps/backend
+    cmds:
+      - pnpm drizzle-kit migrate
+
+  db:generate:
+    desc: "Generate new migration from schema changes"
+    dir: apps/backend
+    cmds:
+      - pnpm drizzle-kit generate
+
+  db:studio:
+    desc: "Open Drizzle Studio"
+    dir: apps/backend
+    cmds:
+      - pnpm drizzle-kit studio
+
+  backend:dev:
+    desc: "Run backend with tsx watch"
+    dir: apps/backend
+    cmds:
+      - pnpm tsx watch src/main.ts
+
+  backend:build:
+    desc: "Compile backend TypeScript"
+    dir: apps/backend
+    cmds:
+      - pnpm tsc -p tsconfig.json
+
+  backend:test:
+    desc: "Run backend tests"
+    dir: apps/backend
+    cmds:
+      - pnpm vitest run
+
+  backend:lint:
+    desc: "Lint + type-check backend"
+    dir: apps/backend
+    cmds:
+      - pnpm tsc --noEmit
+
+  frontend:dev:
+    desc: "Start Vite dev server"
+    dir: apps/frontend
+    cmds:
+      - pnpm vite
+
+  frontend:build:
+    desc: "Build production frontend"
+    dir: apps/frontend
+    cmds:
+      - pnpm vite build
+
+  frontend:test:
+    desc: "Run frontend tests"
+    dir: apps/frontend
+    cmds:
+      - pnpm vitest run
+
+  frontend:lint:
+    desc: "Lint + type-check frontend"
+    dir: apps/frontend
+    cmds:
+      - pnpm tsc --noEmit
+
+  shared:build:
+    desc: "Build shared package"
+    dir: packages/shared
+    cmds:
+      - pnpm tsc -p tsconfig.json
+
+  docker:build:
+    desc: "Build all Docker images"
+    cmds:
+      - docker build -t timesheet-backend:local -f apps/backend/Dockerfile .
+      - docker build -t timesheet-frontend:local -f apps/frontend/Dockerfile .
+
+  docker:push:
+    desc: "Tag and push images (set VERSION and REGISTRY)"
+    cmds:
+      - docker tag timesheet-backend:local $REGISTRY/timesheet/backend:$VERSION
+      - docker tag timesheet-frontend:local $REGISTRY/timesheet/frontend:$VERSION
+      - docker push $REGISTRY/timesheet/backend:$VERSION
+      - docker push $REGISTRY/timesheet/frontend:$VERSION
+
+  ci:test:
+    desc: "Full test suite (mirrors CI)"
+    cmds:
+      - task: backend:lint
+      - task: backend:test
+      - task: frontend:lint
+      - task: frontend:test
+
+  seed:
+    desc: "Seed admin user"
+    dir: apps/backend
+    cmds:
+      - pnpm tsx src/seed.ts
