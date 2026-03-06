@@ -1,3 +1,5 @@
+imagePullSecrets: []
+
 backend:
   image:
     repository: registry.gitlab.com/cluster.fail/timesheet/backend
