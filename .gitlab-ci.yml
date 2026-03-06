@@ -1,0 +1,133 @@
+stages:
+  - install
+  - lint
+  - test
+  - docker-build
+  - deploy
+
+variables:
+  PNPM_VERSION: "9"
+
+.node_base:
+  image: node:20-alpine
+  before_script:
+    - corepack enable && corepack prepare pnpm@$PNPM_VERSION --activate
+    - pnpm install --frozen-lockfile
+  cache:
+    key: ${CI_COMMIT_REF_SLUG}
+    paths:
+      - node_modules/
+      - packages/shared/node_modules/
+      - apps/backend/node_modules/
+      - apps/frontend/node_modules/
+
+install:
+  extends: .node_base
+  stage: install
+  script:
+    - pnpm install --frozen-lockfile
+    - pnpm --filter @timesheet/shared build
+  artifacts:
+    paths:
+      - node_modules/
+      - packages/shared/node_modules/
+      - packages/shared/dist/
+      - apps/backend/node_modules/
+      - apps/frontend/node_modules/
+    expire_in: 1 hour
+
+lint:backend:
+  extends: .node_base
+  stage: lint
+  dependencies: [install]
+  script:
+    - pnpm --filter @timesheet/backend typecheck
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+lint:frontend:
+  extends: .node_base
+  stage: lint
+  dependencies: [install]
+  script:
+    - pnpm --filter @timesheet/frontend typecheck
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+test:backend:
+  extends: .node_base
+  stage: test
+  dependencies: [install]
+  services:
+    - name: postgres:16-alpine
+      alias: db
+  variables:
+    DATABASE_URL: postgres://timesheet:timesheet@db:5432/timesheet
+    POSTGRES_DB: timesheet
+    POSTGRES_USER: timesheet
+    POSTGRES_PASSWORD: timesheet
+    JWT_SECRET: ci-test-secret
+  script:
+    - pnpm --filter @timesheet/backend test:ci
+  coverage: '/Statements\s*:\s*(\d+\.\d+)%/'
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+test:frontend:
+  extends: .node_base
+  stage: test
+  dependencies: [install]
+  script:
+    - pnpm --filter @timesheet/frontend test:ci
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH == "main"
+
+build:backend:
+  stage: docker-build
+  image: docker:latest
+  services: [docker:dind]
+  script:
+    - docker build -t $CI_REGISTRY/timesheet/backend:$CI_COMMIT_REF_SLUG -f apps/backend/Dockerfile .
+    - docker build -t $CI_REGISTRY/timesheet/backend:latest -f apps/backend/Dockerfile .
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $CI_REGISTRY/timesheet/backend:$CI_COMMIT_REF_SLUG
+    - docker push $CI_REGISTRY/timesheet/backend:latest
+  only:
+    - main
+
+build:frontend:
+  stage: docker-build
+  image: docker:latest
+  services: [docker:dind]
+  script:
+    - docker build -t $CI_REGISTRY/timesheet/frontend:$CI_COMMIT_REF_SLUG -f apps/frontend/Dockerfile .
+    - docker build -t $CI_REGISTRY/timesheet/frontend:latest -f apps/frontend/Dockerfile .
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+    - docker push $CI_REGISTRY/timesheet/frontend:$CI_COMMIT_REF_SLUG
+    - docker push $CI_REGISTRY/timesheet/frontend:latest
+  only:
+    - main
+
+deploy:production:
+  stage: deploy
+  image: alpine/helm:3.14.0
+  environment:
+    name: production
+    url: https://timesheet.dixken.de
+  before_script:
+    - mkdir -p ~/.kube
+    - echo "$KUBECONFIG_CONTENT" | base64 -d > ~/.kube/config
+  script:
+    - helm upgrade --install timesheet ./helm
+        --namespace timesheet
+        --create-namespace
+        --set image.backend.tag=$CI_COMMIT_REF_SLUG
+        --set image.frontend.tag=$CI_COMMIT_REF_SLUG
+        --wait --timeout 5m
+  only:
+    - main
+  when: manual
