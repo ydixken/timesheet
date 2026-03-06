@@ -191,6 +191,7 @@ function CreateProjectForm({
   const [hourlyRate, setHourlyRate] = useState('')
   const [estimatedHours, setEstimatedHours] = useState('')
   const [billable, setBillable] = useState(true)
+  const [showAmount, setShowAmount] = useState(true)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -210,6 +211,7 @@ function CreateProjectForm({
         hourlyRate: hourlyRate ? parseFloat(hourlyRate) : null,
         estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null,
         billable,
+        showAmount,
         active: true,
       })
     } catch (e) {
@@ -278,17 +280,31 @@ function CreateProjectForm({
             onChange={(e) => setEstimatedHours(e.target.value)}
             placeholder="e.g. 200"
           />
-          <div className="flex items-center gap-2 self-end pb-2">
-            <input
-              type="checkbox"
-              id="billable"
-              checked={billable}
-              onChange={(e) => setBillable(e.target.checked)}
-              className="accent-terminal-green"
-            />
-            <label htmlFor="billable" className="text-sm text-terminal-text-bright font-mono">
-              Billable
-            </label>
+          <div className="flex items-center gap-4 self-end pb-2">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="billable"
+                checked={billable}
+                onChange={(e) => setBillable(e.target.checked)}
+                className="accent-terminal-green"
+              />
+              <label htmlFor="billable" className="text-sm text-terminal-text-bright font-mono">
+                Billable
+              </label>
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                id="showAmount"
+                checked={showAmount}
+                onChange={(e) => setShowAmount(e.target.checked)}
+                className="accent-terminal-green"
+              />
+              <label htmlFor="showAmount" className="text-sm text-terminal-text-bright font-mono">
+                Show amount
+              </label>
+            </div>
           </div>
         </div>
         {formError && <p className="text-terminal-danger font-mono text-sm">{formError}</p>}

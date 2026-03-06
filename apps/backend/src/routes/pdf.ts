@@ -8,8 +8,19 @@ import { config } from '../config.js'
 import { buildPdfHtml } from '../services/pdf.template.js'
 import type { PdfDayRow } from '../services/pdf.template.js'
 import { generatePdf } from '../services/pdf.service.js'
+import { randomUUID } from 'node:crypto'
 
 const DAY_NAMES = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+
+// In-memory cache for streamed PDF results (auto-expires after 5 min)
+const pdfCache = new Map<string, { buffer: Buffer; filename: string; expires: number }>()
+
+function cleanExpiredPdfs() {
+  const now = Date.now()
+  for (const [key, val] of pdfCache) {
+    if (val.expires < now) pdfCache.delete(key)
+  }
+}
 const MONTH_NAMES = [
   'January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December',
@@ -44,6 +55,23 @@ async function readLogoAsDataUrl(logoPath: string): Promise<string | null> {
 }
 
 export default async function pdfRoutes(fastify: FastifyInstance) {
+  // Download cached PDF by token (no auth — the UUID token IS the auth)
+  fastify.get('/pdf/download/:token', async (request, reply) => {
+    const { token } = request.params as { token: string }
+    cleanExpiredPdfs()
+    const cached = pdfCache.get(token)
+    if (!cached) {
+      return reply.code(404).send({ error: 'PDF not found or expired' })
+    }
+    // Don't delete — allow multiple accesses (preview + download) until expiry
+    const { dl } = request.query as { dl?: string }
+    const disposition = dl === '1' ? 'attachment' : 'inline'
+    return reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `${disposition}; filename="${cached.filename}"`)
+      .send(cached.buffer)
+  })
+
   fastify.addHook('preHandler', fastify.authenticate)
 
   fastify.get('/pdf/:projectId/:year/:month', async (request, reply) => {
@@ -129,7 +157,7 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
     // 6. Totals
     const totalMinutes = entries.reduce((sum, e) => sum + e.durationMin, 0)
     const totalHours = formatGermanDecimal(totalMinutes / 60)
-    const hourlyRate = project.hourlyRate ? parseFloat(project.hourlyRate) : null
+    const hourlyRate = project.showAmount && project.hourlyRate ? parseFloat(project.hourlyRate) : null
     const totalAmount = hourlyRate ? hourlyRate * (totalMinutes / 60) : null
 
     // 7. Logos
@@ -174,4 +202,164 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
       .header('Content-Disposition', `inline; filename="${filename}"`)
       .send(pdfBuffer)
   })
+
+  // SSE stream endpoint — streams progress logs then returns a download token
+  fastify.get('/pdf/:projectId/:year/:month/stream', async (request, reply) => {
+    const { projectId, year, month } = request.params as {
+      projectId: string
+      year: string
+      month: string
+    }
+
+    const yearNum = parseInt(year, 10)
+    const monthNum = parseInt(month, 10)
+
+    if (isNaN(yearNum) || isNaN(monthNum) || monthNum < 1 || monthNum > 12) {
+      return reply.code(400).send({ error: 'Invalid year or month' })
+    }
+
+    // Set up SSE — hijack to prevent Fastify from sending its own response
+    reply.hijack()
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    })
+
+    const send = (event: string, data: string) => {
+      reply.raw.write(`event: ${event}\ndata: ${data}\n\n`)
+    }
+
+    const log = (msg: string) => send('log', msg)
+
+    try {
+      cleanExpiredPdfs()
+
+      log('Fetching project data...')
+      const [project] = await db
+        .select()
+        .from(projects)
+        .where(eq(projects.id, projectId))
+
+      if (!project) {
+        send('error', 'Project not found')
+        reply.raw.end()
+        return
+      }
+      log(`Project: ${project.name}`)
+
+      log('Fetching client information...')
+      let client = null
+      if (project.clientId) {
+        const [c] = await db
+          .select()
+          .from(clients)
+          .where(eq(clients.id, project.clientId))
+        client = c || null
+      }
+      log(client ? `Client: ${client.name}` : 'No client assigned')
+
+      const lastDay = new Date(yearNum, monthNum, 0).getDate()
+      const startDate = `${yearNum}-${pad2(monthNum)}-01`
+      const endDate = `${yearNum}-${pad2(monthNum)}-${pad2(lastDay)}`
+
+      log(`Loading time entries for ${pad2(monthNum)}/${yearNum}...`)
+      const entries = await db
+        .select()
+        .from(timeEntries)
+        .where(
+          and(
+            eq(timeEntries.projectId, projectId),
+            gte(timeEntries.date, startDate),
+            lte(timeEntries.date, endDate),
+          ),
+        )
+        .orderBy(timeEntries.date)
+      log(`Found ${entries.length} entries`)
+
+      log('Building timesheet template...')
+      const days: PdfDayRow[] = []
+      for (let day = 1; day <= lastDay; day++) {
+        const date = new Date(yearNum, monthNum - 1, day)
+        const dateStr = `${yearNum}-${pad2(monthNum)}-${pad2(day)}`
+        const dayOfWeek = date.getDay()
+        const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+        const dayEntries = entries.filter((e) => e.date === dateStr)
+        const totalMin = dayEntries.reduce((sum, e) => sum + e.durationMin, 0)
+        const descriptions = dayEntries
+          .map((e) => e.description)
+          .filter(Boolean)
+          .join(', ')
+        days.push({
+          date: `${DAY_NAMES[dayOfWeek]} ${pad2(day)}.${pad2(monthNum)}.`,
+          hours: totalMin > 0 ? formatGermanDecimal(totalMin / 60) : null,
+          description: descriptions,
+          isWeekend,
+        })
+      }
+
+      if (client?.logoPath) {
+        log('Loading client logo...')
+      }
+      const clientLogoUrl = client?.logoPath
+        ? await readLogoAsDataUrl(client.logoPath)
+        : null
+
+      const totalMinutes = entries.reduce((sum, e) => sum + e.durationMin, 0)
+      const totalHours = formatGermanDecimal(totalMinutes / 60)
+      const hourlyRate =
+        project.showAmount && project.hourlyRate
+          ? parseFloat(project.hourlyRate)
+          : null
+      const totalAmount = hourlyRate ? hourlyRate * (totalMinutes / 60) : null
+
+      log('HTML template ready')
+      log('Starting Puppeteer PDF engine...')
+
+      const html = buildPdfHtml({
+        freelancerName: 'Yannick Dixken',
+        projectName: project.name,
+        clientName: client?.name || 'Unknown',
+        clientAddress: client?.address || null,
+        period: `${MONTH_NAMES[monthNum - 1]} ${yearNum}`,
+        periodRange: `01.${pad2(monthNum)}.${yearNum} \u2013 ${pad2(lastDay)}.${pad2(monthNum)}.${yearNum}`,
+        freelancerLogoUrl: null,
+        clientLogoUrl,
+        days,
+        totalHours,
+        hourlyRate: hourlyRate ? formatGermanDecimal(hourlyRate) : null,
+        totalAmount: totalAmount ? formatGermanAmount(totalAmount) : null,
+      })
+
+      const pdfBuffer = await generatePdf(html, log)
+
+      // Store in cache
+      const clientSlug = (client?.name || 'unknown')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+      const filename = `timesheet_${clientSlug}_${yearNum}-${pad2(monthNum)}.pdf`
+      const token = randomUUID()
+      pdfCache.set(token, {
+        buffer: pdfBuffer,
+        filename,
+        expires: Date.now() + 5 * 60 * 1000,
+      })
+
+      // Log export
+      await db.insert(pdfExports).values({
+        projectId,
+        month: startDate,
+        filename,
+      })
+
+      log('Export complete')
+      send('done', JSON.stringify({ token, filename }))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      send('error', msg)
+    } finally {
+      reply.raw.end()
+    }
+  })
+
 }

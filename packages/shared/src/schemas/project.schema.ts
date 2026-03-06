@@ -7,6 +7,7 @@ export const CreateProjectSchema = z.object({
   hourlyRate: z.number().positive().optional().nullable(),
   estimatedHours: z.number().positive().optional().nullable(),
   billable: z.boolean().default(true),
+  showAmount: z.boolean().default(true),
   active: z.boolean().default(true),
 })
 

@@ -34,6 +34,7 @@ export function Tracker() {
   const [weekOffset, setWeekOffset] = useState(0)
   const [description, setDescription] = useState('')
   const [projectId, setProjectId] = useState('')
+  const [entryDate, setEntryDate] = useState(todayStr)
   const [billable, setBillable] = useState(true)
   const [timeMode, setTimeMode] = useState<'duration' | 'range'>('duration')
   const [durationInput, setDurationInput] = useState('')
@@ -116,7 +117,7 @@ export function Tracker() {
     const data: CreateEntryInput = {
       projectId,
       description,
-      date: todayStr(),
+      date: entryDate,
       startTime: st,
       endTime: et,
       durationMin,
@@ -164,6 +165,12 @@ export function Tracker() {
             onChange={setProjectId}
             projects={projects}
             className="w-48"
+          />
+          <Input
+            type="date"
+            value={entryDate}
+            onChange={(e) => setEntryDate(e.target.value)}
+            className="w-36"
           />
           {timeMode === 'range' ? (
             <>

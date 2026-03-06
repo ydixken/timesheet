@@ -85,7 +85,7 @@ export function buildPdfHtml(data: PdfTemplateData): string {
 <style>
   @page {
     size: A4 portrait;
-    margin: 20mm 15mm;
+    margin: 12mm 12mm;
   }
 
   * {
@@ -96,22 +96,37 @@ export function buildPdfHtml(data: PdfTemplateData): string {
 
   body {
     font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    font-size: 10pt;
+    font-size: 9pt;
     color: #222;
-    line-height: 1.4;
+    line-height: 1.3;
   }
 
   .header {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 20px;
-    padding-bottom: 12px;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
     border-bottom: 2px solid #333;
   }
 
   .header-left {
     flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .header-left .app-logo {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 14pt;
+    font-weight: 700;
+    color: #222;
+    letter-spacing: -0.5px;
+  }
+
+  .header-left .app-logo .tilde {
+    color: #39ff14;
   }
 
   .header-right {
@@ -120,13 +135,22 @@ export function buildPdfHtml(data: PdfTemplateData): string {
   }
 
   .logo {
-    max-height: 60px;
-    max-width: 180px;
+    max-height: 48px;
+    max-width: 160px;
     object-fit: contain;
   }
 
+  .doc-title {
+    font-size: 13pt;
+    font-weight: 700;
+    color: #222;
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
   .meta {
-    margin-bottom: 18px;
+    margin-bottom: 10px;
   }
 
   .meta table {
@@ -134,15 +158,16 @@ export function buildPdfHtml(data: PdfTemplateData): string {
   }
 
   .meta td {
-    padding: 2px 0;
+    padding: 1px 0;
     vertical-align: top;
   }
 
   .meta-label {
     font-weight: 600;
     color: #555;
-    padding-right: 16px;
+    padding-right: 20px;
     white-space: nowrap;
+    width: 80px;
   }
 
   .meta-value {
@@ -152,17 +177,17 @@ export function buildPdfHtml(data: PdfTemplateData): string {
   .entries-table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 16px;
-    font-size: 9pt;
+    margin-bottom: 8px;
+    font-size: 7.5pt;
   }
 
   .entries-table thead th {
     background: #333;
     color: #fff;
     font-weight: 600;
-    padding: 6px 8px;
+    padding: 3px 6px;
     text-align: left;
-    font-size: 9pt;
+    font-size: 7.5pt;
   }
 
   .entries-table thead th.col-hours {
@@ -170,19 +195,20 @@ export function buildPdfHtml(data: PdfTemplateData): string {
   }
 
   .entries-table td {
-    padding: 4px 8px;
+    padding: 2px 6px;
     border-bottom: 1px solid #e0e0e0;
     vertical-align: top;
+    line-height: 1.2;
   }
 
   .entries-table .col-date {
-    width: 80px;
+    width: 72px;
     white-space: nowrap;
     font-weight: 500;
   }
 
   .entries-table .col-hours {
-    width: 65px;
+    width: 50px;
     text-align: right;
     white-space: nowrap;
   }
@@ -207,7 +233,7 @@ export function buildPdfHtml(data: PdfTemplateData): string {
 
   .summary {
     width: 100%;
-    margin-bottom: 30px;
+    margin-bottom: 12px;
   }
 
   .summary table {
@@ -218,86 +244,86 @@ export function buildPdfHtml(data: PdfTemplateData): string {
   .summary-label {
     font-weight: 600;
     color: #555;
-    padding: 3px 16px 3px 0;
+    padding: 2px 12px 2px 0;
     text-align: right;
   }
 
   .summary-value {
     font-weight: 600;
     color: #222;
-    padding: 3px 0;
+    padding: 2px 0;
     text-align: right;
-    min-width: 100px;
+    min-width: 80px;
   }
 
   .total-amount td {
     border-top: 2px solid #333;
-    padding-top: 6px;
-    font-size: 11pt;
+    padding-top: 4px;
+    font-size: 10pt;
   }
 
   .signatures {
-    margin-top: 40px;
     page-break-inside: avoid;
   }
 
   .signature-block {
-    margin-bottom: 30px;
+    display: flex;
+    align-items: flex-end;
+    gap: 20px;
   }
 
   .signature-label {
     font-weight: 600;
     color: #555;
-    margin-bottom: 20px;
-    font-size: 10pt;
-  }
-
-  .signature-line {
-    display: flex;
-    gap: 40px;
-    align-items: flex-end;
+    font-size: 8pt;
+    white-space: nowrap;
+    padding-bottom: 2px;
   }
 
   .signature-field {
-    flex: 1;
+    width: 180px;
   }
 
   .signature-field .line {
     border-bottom: 1px solid #333;
-    min-width: 200px;
     height: 1px;
-    margin-top: 30px;
+    margin-top: 20px;
   }
 
   .signature-field .label {
-    font-size: 8pt;
+    font-size: 7pt;
     color: #888;
-    margin-top: 4px;
+    margin-top: 2px;
   }
 
   .date-field {
-    flex: 0 0 140px;
+    width: 100px;
   }
 
   .date-field .line {
     border-bottom: 1px solid #333;
     height: 1px;
-    margin-top: 30px;
+    margin-top: 20px;
   }
 
   .date-field .label {
-    font-size: 8pt;
+    font-size: 7pt;
     color: #888;
-    margin-top: 4px;
+    margin-top: 2px;
   }
 </style>
 </head>
 <body>
 
 <div class="header">
-  <div class="header-left">${freelancerLogo}</div>
+  <div class="header-left">
+    <span class="app-logo"><span class="tilde">~</span>/timesheet_</span>
+    ${freelancerLogo}
+  </div>
   <div class="header-right">${clientLogo}</div>
 </div>
+
+<div class="doc-title">Timetracking</div>
 
 <div class="meta">
   <table>
@@ -341,25 +367,14 @@ export function buildPdfHtml(data: PdfTemplateData): string {
 
 <div class="signatures">
   <div class="signature-block">
-    <div class="signature-label">Freelancer Signature:</div>
-    <div class="signature-line">
-      <div class="signature-field">
-        <div class="line"></div>
-        <div class="label">${escapeHtml(data.freelancerName)}</div>
-      </div>
+    <div class="signature-label">Approved by:</div>
+    <div class="signature-field">
+      <div class="line"></div>
+      <div class="label">${escapeHtml(data.clientName)}</div>
     </div>
-  </div>
-  <div class="signature-block">
-    <div class="signature-label">Customer Signature:</div>
-    <div class="signature-line">
-      <div class="signature-field">
-        <div class="line"></div>
-        <div class="label">${escapeHtml(data.clientName)}</div>
-      </div>
-      <div class="date-field">
-        <div class="line"></div>
-        <div class="label">Date</div>
-      </div>
+    <div class="date-field">
+      <div class="line"></div>
+      <div class="label">Date</div>
     </div>
   </div>
 </div>

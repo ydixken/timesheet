@@ -18,6 +18,7 @@ export const projects = pgTable('projects', {
   hourlyRate:     numeric('hourly_rate', { precision: 10, scale: 2 }),
   estimatedHours: numeric('estimated_hours', { precision: 10, scale: 2 }),
   billable:       boolean('billable').notNull().default(true),
+  showAmount:     boolean('show_amount').notNull().default(true),
   active:         boolean('active').notNull().default(true),
   createdAt:      timestamp('created_at').notNull().defaultNow(),
   updatedAt:      timestamp('updated_at').notNull().defaultNow(),

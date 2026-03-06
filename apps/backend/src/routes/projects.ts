@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import { eq, sql } from 'drizzle-orm'
 import { CreateProjectSchema, UpdateProjectSchema } from '@timesheet/shared'
 import { db } from '../db/index.js'
-import { projects, timeEntries, clients } from '../db/schema.js'
+import { projects, timeEntries, clients, tasks } from '../db/schema.js'
 
 export default async function projectRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate)
@@ -101,18 +101,40 @@ export default async function projectRoutes(fastify: FastifyInstance) {
 
     const [stats] = await db
       .select({
-        totalEntries: sql<number>`count(*)::int`,
         totalMinutes: sql<number>`coalesce(sum(${timeEntries.durationMin}), 0)::int`,
         billableMinutes: sql<number>`coalesce(sum(case when ${timeEntries.billable} then ${timeEntries.durationMin} else 0 end), 0)::int`,
       })
       .from(timeEntries)
       .where(eq(timeEntries.projectId, id))
 
+    const taskRows = await db
+      .select({
+        id: tasks.id,
+        name: tasks.name,
+        totalMinutes: sql<number>`coalesce(sum(${timeEntries.durationMin}), 0)::int`,
+      })
+      .from(tasks)
+      .leftJoin(timeEntries, eq(timeEntries.taskId, tasks.id))
+      .where(eq(tasks.projectId, id))
+      .groupBy(tasks.id, tasks.name)
+
+    const totalMinutes = stats.totalMinutes
+    const billableMinutes = stats.billableMinutes
+    const nonBillableMinutes = totalMinutes - billableMinutes
+    const rate = project.hourlyRate ? parseFloat(project.hourlyRate) : null
+    const budget = project.estimatedHours ? parseFloat(project.estimatedHours) : null
+    const billableHours = billableMinutes / 60
+    const trackedHours = totalMinutes / 60
+    const earnedAmount = rate !== null ? billableHours * rate : null
+
     return {
-      ...project,
-      totalEntries: stats.totalEntries,
-      totalMinutes: stats.totalMinutes,
-      billableMinutes: stats.billableMinutes,
+      project,
+      totalMinutes,
+      billableMinutes,
+      nonBillableMinutes,
+      remainingHours: budget !== null ? Math.max(budget - trackedHours, 0) : null,
+      earnedAmount,
+      tasks: taskRows,
     }
   })
 }
