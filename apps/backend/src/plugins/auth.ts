@@ -57,10 +57,13 @@ export default fp(async (fastify: FastifyInstance) => {
 
       const token = authHeader.slice(7)
       try {
-        const { payload } = await jwtVerify(token, jwks, {
+        const verifyOptions: { issuer: string; audience?: string } = {
           issuer: issuerUrl,
-          audience: config.OIDC_AUDIENCE ?? config.OIDC_CLIENT_ID!,
-        })
+        }
+        if (config.OIDC_AUDIENCE) {
+          verifyOptions.audience = config.OIDC_AUDIENCE
+        }
+        const { payload } = await jwtVerify(token, jwks, verifyOptions)
 
         request.user = {
           sub: payload.sub ?? '',
