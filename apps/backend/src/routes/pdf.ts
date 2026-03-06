@@ -1,0 +1,177 @@
+import type { FastifyInstance } from 'fastify'
+import { readFile } from 'node:fs/promises'
+import path from 'node:path'
+import { eq, and, gte, lte } from 'drizzle-orm'
+import { db } from '../db/index.js'
+import { projects, clients, timeEntries, pdfExports } from '../db/schema.js'
+import { config } from '../config.js'
+import { buildPdfHtml } from '../services/pdf.template.js'
+import type { PdfDayRow } from '../services/pdf.template.js'
+import { generatePdf } from '../services/pdf.service.js'
+
+const DAY_NAMES = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
+
+function formatGermanDecimal(n: number): string {
+  return n.toFixed(1).replace('.', ',')
+}
+
+function formatGermanAmount(n: number): string {
+  return n.toLocaleString('de-DE', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })
+}
+
+function pad2(n: number): string {
+  return String(n).padStart(2, '0')
+}
+
+async function readLogoAsDataUrl(logoPath: string): Promise<string | null> {
+  try {
+    const fullPath = path.join(config.UPLOADS_DIR, logoPath)
+    const logoFile = await readFile(fullPath)
+    const ext = logoPath.split('.').pop()?.toLowerCase()
+    const mime =
+      ext === 'svg' ? 'image/svg+xml' : ext === 'png' ? 'image/png' : 'image/jpeg'
+    return `data:${mime};base64,${logoFile.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
+export default async function pdfRoutes(fastify: FastifyInstance) {
+  fastify.addHook('preHandler', fastify.authenticate)
+
+  fastify.get('/pdf/:projectId/:year/:month', async (request, reply) => {
+    const { projectId, year, month } = request.params as {
+      projectId: string
+      year: string
+      month: string
+    }
+
+    const yearNum = parseInt(year, 10)
+    const monthNum = parseInt(month, 10)
+
+    if (
+      isNaN(yearNum) ||
+      isNaN(monthNum) ||
+      monthNum < 1 ||
+      monthNum > 12
+    ) {
+      return reply.code(400).send({ error: 'Invalid year or month' })
+    }
+
+    // 1. Fetch project
+    const [project] = await db
+      .select()
+      .from(projects)
+      .where(eq(projects.id, projectId))
+
+    if (!project) {
+      return reply.code(404).send({ error: 'Project not found' })
+    }
+
+    // 2. Fetch client
+    let client = null
+    if (project.clientId) {
+      const [c] = await db
+        .select()
+        .from(clients)
+        .where(eq(clients.id, project.clientId))
+      client = c || null
+    }
+
+    // 3. Date range
+    const lastDay = new Date(yearNum, monthNum, 0).getDate()
+    const startDate = `${yearNum}-${pad2(monthNum)}-01`
+    const endDate = `${yearNum}-${pad2(monthNum)}-${pad2(lastDay)}`
+
+    // 4. Fetch entries
+    const entries = await db
+      .select()
+      .from(timeEntries)
+      .where(
+        and(
+          eq(timeEntries.projectId, projectId),
+          gte(timeEntries.date, startDate),
+          lte(timeEntries.date, endDate),
+        ),
+      )
+      .orderBy(timeEntries.date)
+
+    // 5. Build day rows — one per calendar day
+    const days: PdfDayRow[] = []
+    for (let day = 1; day <= lastDay; day++) {
+      const date = new Date(yearNum, monthNum - 1, day)
+      const dateStr = `${yearNum}-${pad2(monthNum)}-${pad2(day)}`
+      const dayOfWeek = date.getDay() // 0=Sun, 6=Sat
+      const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+
+      const dayEntries = entries.filter((e) => e.date === dateStr)
+      const totalMin = dayEntries.reduce((sum, e) => sum + e.durationMin, 0)
+      const descriptions = dayEntries
+        .map((e) => e.description)
+        .filter(Boolean)
+        .join(', ')
+
+      days.push({
+        date: `${DAY_NAMES[dayOfWeek]} ${pad2(day)}.${pad2(monthNum)}.`,
+        hours: totalMin > 0 ? formatGermanDecimal(totalMin / 60) : null,
+        description: descriptions,
+        isWeekend,
+      })
+    }
+
+    // 6. Totals
+    const totalMinutes = entries.reduce((sum, e) => sum + e.durationMin, 0)
+    const totalHours = formatGermanDecimal(totalMinutes / 60)
+    const hourlyRate = project.hourlyRate ? parseFloat(project.hourlyRate) : null
+    const totalAmount = hourlyRate ? hourlyRate * (totalMinutes / 60) : null
+
+    // 7. Logos
+    const clientLogoUrl = client?.logoPath
+      ? await readLogoAsDataUrl(client.logoPath)
+      : null
+
+    // 8. Build HTML
+    const html = buildPdfHtml({
+      freelancerName: 'Yannick Dixken',
+      projectName: project.name,
+      clientName: client?.name || 'Unknown',
+      clientAddress: client?.address || null,
+      period: `${MONTH_NAMES[monthNum - 1]} ${yearNum}`,
+      periodRange: `01.${pad2(monthNum)}.${yearNum} \u2013 ${pad2(lastDay)}.${pad2(monthNum)}.${yearNum}`,
+      freelancerLogoUrl: null,
+      clientLogoUrl,
+      days,
+      totalHours,
+      hourlyRate: hourlyRate ? formatGermanDecimal(hourlyRate) : null,
+      totalAmount: totalAmount ? formatGermanAmount(totalAmount) : null,
+    })
+
+    // 9. Generate PDF
+    const pdfBuffer = await generatePdf(html)
+
+    // 10. Log export
+    const clientSlug = (client?.name || 'unknown')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+    const filename = `timesheet_${clientSlug}_${yearNum}-${pad2(monthNum)}.pdf`
+
+    await db.insert(pdfExports).values({
+      projectId,
+      month: startDate,
+      filename,
+    })
+
+    // 11. Send response
+    return reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `inline; filename="${filename}"`)
+      .send(pdfBuffer)
+  })
+}
