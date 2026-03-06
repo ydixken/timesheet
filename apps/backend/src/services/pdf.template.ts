@@ -381,7 +381,7 @@ export function buildPdfHtml(data: PdfTemplateData): string {
     <div class="signature-label">Approved by:</div>
     <div class="signature-field">
       <div class="line"></div>
-      <div class="label">${escapeHtml(data.clientName)}</div>
+      <div class="label">${escapeHtml(data.projectName)}</div>
     </div>
     <div class="date-field">
       <div class="line"></div>
