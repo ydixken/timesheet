@@ -1,38 +1,76 @@
 import fp from 'fastify-plugin'
-import fastifyJwt from '@fastify/jwt'
 import fastifyCookie from '@fastify/cookie'
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify'
+import { createRemoteJWKSet, jwtVerify } from 'jose'
 import { config } from '../config.js'
+
+interface UserInfo {
+  sub: string
+  username: string
+  email: string
+  groups: string[]
+}
 
 declare module 'fastify' {
   interface FastifyInstance {
     authenticate: (request: FastifyRequest, reply: FastifyReply) => Promise<void>
   }
+  interface FastifyRequest {
+    user: UserInfo
+  }
 }
 
-declare module '@fastify/jwt' {
-  interface FastifyJWT {
-    payload: { sub: string; username: string }
-    user: { sub: string; username: string }
-  }
+const defaultUser: UserInfo = {
+  sub: 'dev',
+  username: 'developer',
+  email: 'dev@local',
+  groups: [],
 }
 
 export default fp(async (fastify: FastifyInstance) => {
   await fastify.register(fastifyCookie)
 
-  await fastify.register(fastifyJwt, {
-    secret: config.JWT_SECRET,
-    cookie: {
-      cookieName: 'token',
-      signed: false,
+  fastify.decorateRequest('user', {
+    getter() {
+      return defaultUser
     },
   })
 
-  fastify.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
-    try {
-      await request.jwtVerify()
-    } catch {
-      reply.code(401).send({ error: 'Unauthorized' })
-    }
-  })
+  if (config.AUTH_MODE === 'none') {
+    fastify.decorate('authenticate', async (_request: FastifyRequest, _reply: FastifyReply) => {
+      // no-op in none mode — user is already set to defaultUser via decorator getter
+    })
+  } else {
+    // OIDC mode
+    const issuerUrl = config.OIDC_ISSUER_URL!
+    const jwksUrl = new URL(
+      `${issuerUrl.replace(/\/$/, '')}/protocol/openid-connect/certs`,
+    )
+    const jwks = createRemoteJWKSet(jwksUrl)
+
+    fastify.decorate('authenticate', async (request: FastifyRequest, reply: FastifyReply) => {
+      const authHeader = request.headers.authorization
+      if (!authHeader?.startsWith('Bearer ')) {
+        reply.code(401).send({ error: 'Missing or invalid Authorization header' })
+        return
+      }
+
+      const token = authHeader.slice(7)
+      try {
+        const { payload } = await jwtVerify(token, jwks, {
+          issuer: issuerUrl,
+          audience: config.OIDC_AUDIENCE ?? config.OIDC_CLIENT_ID!,
+        })
+
+        request.user = {
+          sub: payload.sub ?? '',
+          username: (payload as Record<string, unknown>).preferred_username as string ?? '',
+          email: (payload as Record<string, unknown>).email as string ?? '',
+          groups: ((payload as Record<string, unknown>).groups as string[]) ?? [],
+        }
+      } catch {
+        reply.code(401).send({ error: 'Invalid or expired token' })
+      }
+    })
+  }
 })

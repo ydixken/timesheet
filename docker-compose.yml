@@ -20,6 +20,7 @@ services:
       dockerfile: apps/backend/Dockerfile
     environment:
       DATABASE_URL: postgres://timesheet:timesheet@db:5432/timesheet
+      AUTH_MODE: none
       JWT_SECRET: dev-secret-change-in-prod
       ADMIN_USER: yannick
       ADMIN_PASS: changeme

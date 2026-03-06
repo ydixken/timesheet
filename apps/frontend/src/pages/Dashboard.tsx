@@ -108,7 +108,7 @@ export function Dashboard() {
   return (
     <div>
       <h1 className="page-heading text-2xl font-bold text-terminal-text-bright mb-6 font-mono">
-        $ dashboard
+        dashboard
       </h1>
 
       {/* Range selector */}

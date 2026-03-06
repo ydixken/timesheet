@@ -1,0 +1,55 @@
+backend:
+  image:
+    repository: registry.gitlab.com/cluster.fail/timesheet/backend
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 1
+  port: 3000
+  env:
+    NODE_ENV: production
+    AUTH_MODE: oidc
+    OIDC_ISSUER_URL: ""
+    OIDC_CLIENT_ID: timesheet
+    OIDC_AUDIENCE: timesheet
+    UPLOADS_DIR: /uploads
+    MAX_UPLOAD_SIZE_MB: "5"
+    PUPPETEER_NO_SANDBOX: "true"
+    CORS_ORIGIN: ""
+  secretEnv:
+    DATABASE_URL:
+      secretName: timesheet-postgresql
+      key: DATABASE_URL
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      memory: 768Mi
+  persistence:
+    uploads:
+      enabled: true
+      size: 1Gi
+      mountPath: /uploads
+
+frontend:
+  image:
+    repository: registry.gitlab.com/cluster.fail/timesheet/frontend
+    tag: latest
+    pullPolicy: IfNotPresent
+  replicas: 1
+  port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      memory: 128Mi
+
+ingress:
+  enabled: true
+  className: nginx
+  host: ""
+  annotations: {}
+  tls:
+    enabled: true
+    secretName: timesheet-tls

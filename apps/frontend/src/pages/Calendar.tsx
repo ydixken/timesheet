@@ -176,7 +176,7 @@ export function Calendar() {
   return (
     <div>
       <h1 className="page-heading text-2xl font-bold text-terminal-text-bright mb-6 font-mono">
-        $ calendar
+        calendar
       </h1>
 
       {/* Month navigation */}

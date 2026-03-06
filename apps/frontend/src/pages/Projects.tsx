@@ -48,7 +48,7 @@ export function Projects() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="page-heading text-2xl font-bold text-terminal-text-bright font-mono">
-          $ projects
+          projects
         </h1>
         <Button variant="filled" onClick={() => setShowCreate(true)}>
           [+ new]

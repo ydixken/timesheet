@@ -15,7 +15,7 @@ export function Sidebar() {
   const logout = useAuthStore((s) => s.logout)
 
   return (
-    <aside className="w-56 h-screen bg-terminal-bg-light border-r border-terminal-border flex flex-col fixed left-0 top-0">
+    <aside className="w-56 h-screen bg-terminal-bg-light border-r border-terminal-border flex flex-col fixed left-0 top-0 z-20">
       <div className="p-5 border-b border-terminal-border">
         <h1 className="font-mono text-lg font-bold">
           <span className="text-terminal-green">~/</span>

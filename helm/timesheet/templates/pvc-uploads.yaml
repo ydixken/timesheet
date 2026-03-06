@@ -1,0 +1,14 @@
+{{- if .Values.backend.persistence.uploads.enabled }}
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: {{ include "timesheet.fullname" . }}-uploads
+  labels:
+    {{- include "timesheet.labels" . | nindent 4 }}
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.backend.persistence.uploads.size }}
+{{- end }}

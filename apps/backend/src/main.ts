@@ -1,6 +1,10 @@
+import { resolve, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import Fastify from 'fastify'
 import cors from '@fastify/cors'
+import { migrate } from 'drizzle-orm/postgres-js/migrator'
 import { config } from './config.js'
+import { db } from './db/index.js'
 import authPlugin from './plugins/auth.js'
 import uploadsPlugin from './plugins/uploads.js'
 import healthRoutes from './routes/health.js'
@@ -12,6 +16,9 @@ import taskRoutes from './routes/tasks.js'
 import dashboardRoutes from './routes/dashboard.js'
 import reportRoutes from './routes/reports.js'
 import pdfRoutes from './routes/pdf.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
+await migrate(db, { migrationsFolder: resolve(__dirname, './db/migrations') })
 
 const app = Fastify({
   logger: {

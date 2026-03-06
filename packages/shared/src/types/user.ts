@@ -1,7 +1,9 @@
 export interface User {
   id: string
   username: string
-  createdAt: string
+  email?: string
+  groups?: string[]
+  createdAt?: string
 }
 
 export interface AuthResponse {

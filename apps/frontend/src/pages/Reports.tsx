@@ -200,8 +200,8 @@ export function Reports() {
 
   return (
     <div>
-      <h1 className="page-heading text-2xl font-bold text-terminal-text-bright mb-6">
-        $ reports
+      <h1 className="page-heading text-2xl font-bold text-terminal-text-bright mb-6 font-mono">
+        reports
       </h1>
 
       {/* Tab navigation */}

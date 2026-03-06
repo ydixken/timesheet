@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "timesheet.fullname" . }}-frontend
+  labels:
+    {{- include "timesheet.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.frontend.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "timesheet.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
