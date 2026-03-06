@@ -129,6 +129,14 @@ export function buildPdfHtml(data: PdfTemplateData): string {
     color: #39ff14;
   }
 
+  .header-left .app-repo {
+    font-family: "Courier New", Courier, monospace;
+    font-size: 7pt;
+    color: #888;
+    display: block;
+    margin-top: 1px;
+  }
+
   .header-right {
     flex-shrink: 0;
     text-align: right;
@@ -317,7 +325,10 @@ export function buildPdfHtml(data: PdfTemplateData): string {
 
 <div class="header">
   <div class="header-left">
-    <span class="app-logo"><span class="tilde">~</span>/timesheet_</span>
+    <div>
+      <span class="app-logo"><span class="tilde">~</span>/timesheet_</span>
+      <span class="app-repo">https://gitlab.com/cluster.fail/timesheet</span>
+    </div>
     ${freelancerLogo}
   </div>
   <div class="header-right">${clientLogo}</div>
