@@ -45,6 +45,7 @@ export function Tracker() {
   const [formError, setFormError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [dragOverDate, setDragOverDate] = useState<string | null>(null)
 
   const MONTH_NAMES = [
     'January', 'February', 'March', 'April', 'May', 'June',
@@ -139,6 +140,17 @@ export function Tracker() {
     } catch {
       // ignore
     }
+  }
+
+  async function handleDrop(targetDate: string, e: React.DragEvent) {
+    e.preventDefault()
+    setDragOverDate(null)
+    const entryId = e.dataTransfer.getData('text/plain')
+    if (!entryId) return
+    const entry = entries.find((en) => en.id === entryId)
+    if (!entry || entry.date === targetDate) return
+    await update(entryId, { date: targetDate })
+    fetchCurrentMonth()
   }
 
   return (
@@ -268,7 +280,13 @@ export function Tracker() {
           {[...grouped.entries()].map(([date, dayEntries]) => {
             const dayTotal = dayEntries.reduce((sum, e) => sum + e.durationMin, 0)
             return (
-              <div key={date}>
+              <div
+                key={date}
+                onDragOver={(e) => { e.preventDefault(); setDragOverDate(date) }}
+                onDragLeave={() => setDragOverDate(null)}
+                onDrop={(e) => handleDrop(date, e)}
+                className={`rounded-lg p-2 -m-2 transition-colors ${dragOverDate === date ? 'bg-terminal-green/10 ring-1 ring-terminal-green/40 ring-dashed' : ''}`}
+              >
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-mono text-sm font-medium text-terminal-text-bright">
                     {formatDateHeading(date)}
@@ -287,6 +305,7 @@ export function Tracker() {
                         onSave={async (data) => {
                           await update(entry.id, data)
                           setEditingId(null)
+                          fetchCurrentMonth()
                         }}
                         onCancel={() => setEditingId(null)}
                       />
@@ -300,6 +319,10 @@ export function Tracker() {
                             ? handleDelete(entry.id)
                             : setDeletingId(entry.id)
                         }
+                        onDateChange={async (newDate) => {
+                          await update(entry.id, { date: newDate })
+                          fetchCurrentMonth()
+                        }}
                         isConfirmingDelete={deletingId === entry.id}
                         onCancelDelete={() => setDeletingId(null)}
                       />
@@ -319,19 +342,28 @@ function EntryRow({
   entry,
   onEdit,
   onDelete,
+  onDateChange,
   isConfirmingDelete,
   onCancelDelete,
 }: {
   entry: EntryWithProject
   onEdit: () => void
   onDelete: () => void
+  onDateChange: (date: string) => void
   isConfirmingDelete: boolean
   onCancelDelete: () => void
 }) {
   const timeRange = formatTimeRange(entry.startTime, entry.endTime)
 
   return (
-    <div className="group flex items-center justify-between bg-terminal-bg-light rounded px-4 py-3 border border-transparent hover:border-l-2 hover:border-l-terminal-green transition-all">
+    <div
+      draggable
+      onDragStart={(e) => {
+        e.dataTransfer.setData('text/plain', entry.id)
+        e.dataTransfer.effectAllowed = 'move'
+      }}
+      className="group flex items-center justify-between bg-terminal-bg-light rounded px-4 py-3 border border-transparent hover:border-l-2 hover:border-l-terminal-green transition-all cursor-grab active:cursor-grabbing active:opacity-50"
+    >
       <div className="flex items-center gap-4 flex-1 min-w-0">
         <span className="text-sm text-terminal-text-bright truncate max-w-xs">
           {entry.description || <span className="text-terminal-text italic">no description</span>}
@@ -345,6 +377,13 @@ function EntryRow({
         )}
       </div>
       <div className="flex items-center gap-4">
+        <input
+          type="date"
+          value={entry.date}
+          onChange={(e) => { if (e.target.value && e.target.value !== entry.date) onDateChange(e.target.value) }}
+          className="bg-transparent border-none text-xs font-mono text-terminal-text cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 outline-none"
+          title="Change date"
+        />
         {timeRange && (
           <span className="text-xs font-mono text-terminal-text">{timeRange}</span>
         )}
@@ -408,11 +447,12 @@ function EditRow({
 }: {
   entry: EntryWithProject
   projects: Project[]
-  onSave: (data: { description?: string; projectId?: string; startTime?: string | null; endTime?: string | null; durationMin?: number; billable?: boolean }) => Promise<void>
+  onSave: (data: { description?: string; projectId?: string; date?: string; startTime?: string | null; endTime?: string | null; durationMin?: number; billable?: boolean }) => Promise<void>
   onCancel: () => void
 }) {
   const [desc, setDesc] = useState(entry.description)
   const [proj, setProj] = useState(entry.projectId)
+  const [dateVal, setDateVal] = useState(entry.date)
   const [bill, setBill] = useState(entry.billable)
   const [durInput, setDurInput] = useState(
     entry.startTime && entry.endTime ? '' : String(entry.durationMin / 60),
@@ -458,6 +498,7 @@ function EditRow({
       await onSave({
         description: desc,
         projectId: proj,
+        date: dateVal,
         startTime,
         endTime,
         durationMin,
@@ -485,6 +526,12 @@ function EditRow({
           onChange={setProj}
           projects={projects}
           className="w-40"
+        />
+        <Input
+          type="date"
+          value={dateVal}
+          onChange={(e) => setDateVal(e.target.value)}
+          className="w-36"
         />
         {mode === 'range' ? (
           <>

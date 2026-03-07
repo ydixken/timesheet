@@ -1,1 +1,1 @@
-ALTER TABLE "projects" ADD COLUMN "show_amount" boolean NOT NULL DEFAULT true;
+ALTER TABLE "projects" ADD COLUMN IF NOT EXISTS "show_amount" boolean NOT NULL DEFAULT true;
