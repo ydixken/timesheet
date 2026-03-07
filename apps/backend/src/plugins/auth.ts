@@ -71,7 +71,8 @@ export default fp(async (fastify: FastifyInstance) => {
           email: (payload as Record<string, unknown>).email as string ?? '',
           groups: ((payload as Record<string, unknown>).groups as string[]) ?? [],
         }
-      } catch {
+      } catch (err) {
+        request.log.error({ err }, 'OIDC token verification failed')
         reply.code(401).send({ error: 'Invalid or expired token' })
       }
     })
