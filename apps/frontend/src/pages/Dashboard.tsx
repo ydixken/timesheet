@@ -182,8 +182,8 @@ export function Dashboard() {
                         fontFamily: 'JetBrains Mono',
                         fontSize: 12,
                       }}
-                      formatter={(value: number, name: string, props: { payload: Record<string, number> }) => {
-                        const hours = props.payload[`_hours_${name}`] ?? 0
+                      formatter={(value: number, name: string, props: { payload?: Record<string, number> }) => {
+                        const hours = props.payload?.[`_hours_${name}`] ?? 0
                         return [`${formatEuro(value)} (${hours}h)`, name]
                       }}
                     />
