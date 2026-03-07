@@ -30,15 +30,11 @@ const defaultUser: UserInfo = {
 export default fp(async (fastify: FastifyInstance) => {
   await fastify.register(fastifyCookie)
 
-  fastify.decorateRequest('user', {
-    getter() {
-      return defaultUser
-    },
-  })
+  fastify.decorateRequest('user', null as unknown as UserInfo)
 
   if (config.AUTH_MODE === 'none') {
-    fastify.decorate('authenticate', async (_request: FastifyRequest, _reply: FastifyReply) => {
-      // no-op in none mode — user is already set to defaultUser via decorator getter
+    fastify.decorate('authenticate', async (request: FastifyRequest, _reply: FastifyReply) => {
+      request.user = defaultUser
     })
   } else {
     // OIDC mode
