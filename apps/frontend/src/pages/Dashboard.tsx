@@ -82,7 +82,8 @@ export function Dashboard() {
     ? data.dailySeries.map((day) => {
         const row: Record<string, string | number> = { date: formatDayLabel(day.date) }
         for (const p of day.projects) {
-          row[p.projectName] = +(p.minutes / 60).toFixed(2)
+          row[p.projectName] = +((p.minutes / 60) * p.hourlyRate).toFixed(2)
+          row[`_hours_${p.projectName}`] = +(p.minutes / 60).toFixed(2)
         }
         return row
       })
@@ -154,7 +155,7 @@ export function Dashboard() {
             {/* Stacked bar chart */}
             <div className="lg:col-span-3 bg-terminal-bg-light border border-terminal-border rounded-lg p-4">
               <h2 className="text-terminal-text-bright font-mono text-sm font-bold mb-4">
-                Hours per Day
+                Revenue per Day
               </h2>
               {barData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
@@ -170,7 +171,7 @@ export function Dashboard() {
                       tick={{ fill: CHART_TEXT, fontFamily: 'JetBrains Mono', fontSize: 12 }}
                       axisLine={{ stroke: CHART_GRID }}
                       tickLine={{ stroke: CHART_GRID }}
-                      unit="h"
+                      unit="€"
                     />
                     <Tooltip
                       contentStyle={{
@@ -181,13 +182,16 @@ export function Dashboard() {
                         fontFamily: 'JetBrains Mono',
                         fontSize: 12,
                       }}
-                      formatter={(value: number) => [`${value}h`, undefined]}
+                      formatter={(value: number, name: string, props: { payload: Record<string, number> }) => {
+                        const hours = props.payload[`_hours_${name}`] ?? 0
+                        return [`${formatEuro(value)} (${hours}h)`, name]
+                      }}
                     />
                     {allProjectNames.map((name, i) => (
                       <Bar
                         key={name}
                         dataKey={name}
-                        stackId="hours"
+                        stackId="revenue"
                         fill={projectColorMap[name] || FALLBACK_COLORS[i % FALLBACK_COLORS.length]}
                         radius={i === allProjectNames.length - 1 ? [3, 3, 0, 0] : undefined}
                       />

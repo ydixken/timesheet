@@ -1,7 +1,7 @@
 export interface DailySeries {
   date: string
   totalMinutes: number
-  projects: { projectId: string; projectName: string; color: string; minutes: number }[]
+  projects: { projectId: string; projectName: string; color: string; minutes: number; hourlyRate: number }[]
 }
 
 export interface ProjectSplit {

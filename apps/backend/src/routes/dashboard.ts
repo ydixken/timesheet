@@ -113,7 +113,7 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
     const topClient = [...clientMinutes.values()].sort((a, b) => b.minutes - a.minutes)[0] ?? null
 
     // dailySeries
-    const dailyMap = new Map<string, Map<string, { projectId: string; projectName: string; color: string; minutes: number }>>()
+    const dailyMap = new Map<string, Map<string, { projectId: string; projectName: string; color: string; minutes: number; hourlyRate: number }>>()
     for (const r of rows) {
       if (!dailyMap.has(r.date)) dailyMap.set(r.date, new Map())
       const dayProjects = dailyMap.get(r.date)!
@@ -123,6 +123,7 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
         projectName: r.projectName ?? 'Unknown',
         color: r.projectColor ?? '#888888',
         minutes: 0,
+        hourlyRate: r.hourlyRate ? parseFloat(r.hourlyRate) : 0,
       }
       cur.minutes += r.durationMin
       dayProjects.set(pid, cur)
