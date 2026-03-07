@@ -56,21 +56,23 @@ async function readLogoAsDataUrl(logoPath: string): Promise<string | null> {
 }
 
 export default async function pdfRoutes(fastify: FastifyInstance) {
-  // Download cached PDF by token (no auth — the UUID token IS the auth)
-  fastify.get('/pdf/download/:token', async (request, reply) => {
-    const { token } = request.params as { token: string }
-    cleanExpiredPdfs()
-    const cached = pdfCache.get(token)
-    if (!cached) {
-      return reply.code(404).send({ error: 'PDF not found or expired' })
-    }
-    // Don't delete — allow multiple accesses (preview + download) until expiry
-    const { dl } = request.query as { dl?: string }
-    const disposition = dl === '1' ? 'attachment' : 'inline'
-    return reply
-      .header('Content-Type', 'application/pdf')
-      .header('Content-Disposition', `${disposition}; filename="${cached.filename}"`)
-      .send(cached.buffer)
+  // Download cached PDF by token — no auth required, the UUID token IS the auth.
+  // Registered in its own scope so the addHook below doesn't apply to it.
+  fastify.register(async (scope) => {
+    scope.get('/pdf/download/:token', async (request, reply) => {
+      const { token } = request.params as { token: string }
+      cleanExpiredPdfs()
+      const cached = pdfCache.get(token)
+      if (!cached) {
+        return reply.code(404).send({ error: 'PDF not found or expired' })
+      }
+      const { dl } = request.query as { dl?: string }
+      const disposition = dl === '1' ? 'attachment' : 'inline'
+      return reply
+        .header('Content-Type', 'application/pdf')
+        .header('Content-Disposition', `${disposition}; filename="${cached.filename}"`)
+        .send(cached.buffer)
+    })
   })
 
   fastify.addHook('preHandler', fastify.authenticate)
