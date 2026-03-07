@@ -1,3 +1,5 @@
+export type PdfTheme = 'classic' | 'terminal'
+
 export interface PdfExport {
   id: string
   projectId: string

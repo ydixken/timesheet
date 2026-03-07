@@ -1,12 +1,16 @@
 import { useState, useEffect, useCallback, useRef, type KeyboardEvent } from 'react'
 import { useEntries } from '../hooks/useEntries'
 import { useProjects } from '../hooks/useProjects'
-import { getWeekDates, parseHoursToMinutes, formatDecimalHours } from '../lib/time'
+import { getMonthDates, parseHoursToMinutes, formatDecimalHours } from '../lib/time'
 import { Button } from '../components/ui/Button'
 import { ProjectSelector } from '../components/ProjectSelector'
 import type { EntryWithProject } from '../types'
 
-const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const DAY_ABBR = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+]
 
 interface GridRow {
   projectId: string
@@ -15,23 +19,6 @@ interface GridRow {
   clientName: string | null
   cells: (number | null)[] // durationMin per day, null = empty
   entryIds: (string[] | null)[] // entry IDs per day for update/delete
-}
-
-function formatWeekHeader(start: string, end: string): string {
-  const s = new Date(start + 'T12:00:00')
-  const e = new Date(end + 'T12:00:00')
-  const sMonth = s.toLocaleDateString('en-US', { month: 'short' })
-  const eMonth = e.toLocaleDateString('en-US', { month: 'short' })
-  const year = e.getFullYear()
-  if (sMonth === eMonth) {
-    return `Week of ${sMonth} ${s.getDate()} \u2013 ${e.getDate()}, ${year}`
-  }
-  return `Week of ${sMonth} ${s.getDate()} \u2013 ${eMonth} ${e.getDate()}, ${year}`
-}
-
-function formatDayDate(dateStr: string): string {
-  const d = new Date(dateStr + 'T12:00:00')
-  return `${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
 }
 
 function buildGrid(entries: EntryWithProject[], projectIds: string[], projects: { id: string; name: string; color: string; clientName: string | null }[], dates: string[]): GridRow[] {
@@ -64,7 +51,9 @@ function buildGrid(entries: EntryWithProject[], projectIds: string[], projects: 
 }
 
 export function Timesheet() {
-  const [refDate, setRefDate] = useState(() => new Date())
+  const now = new Date()
+  const [year, setYear] = useState(now.getFullYear())
+  const [month, setMonth] = useState(now.getMonth() + 1)
   const [gridRows, setGridRows] = useState<GridRow[]>([])
   const [addingRow, setAddingRow] = useState(false)
   const [newProjectId, setNewProjectId] = useState('')
@@ -72,8 +61,7 @@ export function Timesheet() {
   const { projects, fetch: fetchProjects } = useProjects()
   const savingRef = useRef(false)
 
-  const week = getWeekDates(refDate)
-  const { start, end, dates } = week
+  const { start, end, dates } = getMonthDates(year, month)
 
   // Build project lookup with client names
   const projectLookup = projects.map((p) => ({
@@ -91,7 +79,7 @@ export function Timesheet() {
     }
   }
 
-  // Fetch on mount and week changes
+  // Fetch on mount and month changes
   useEffect(() => {
     fetchProjects()
   }, [fetchProjects])
@@ -113,23 +101,29 @@ export function Timesheet() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entries, projects, start])
 
-  const prevWeek = () => {
-    setRefDate((d) => {
-      const n = new Date(d)
-      n.setDate(n.getDate() - 7)
-      return n
-    })
+  const prevMonth = () => {
+    if (month === 1) {
+      setYear((y) => y - 1)
+      setMonth(12)
+    } else {
+      setMonth((m) => m - 1)
+    }
   }
 
-  const nextWeek = () => {
-    setRefDate((d) => {
-      const n = new Date(d)
-      n.setDate(n.getDate() + 7)
-      return n
-    })
+  const nextMonth = () => {
+    if (month === 12) {
+      setYear((y) => y + 1)
+      setMonth(1)
+    } else {
+      setMonth((m) => m + 1)
+    }
   }
 
-  const goToday = () => setRefDate(new Date())
+  const goToday = () => {
+    const today = new Date()
+    setYear(today.getFullYear())
+    setMonth(today.getMonth() + 1)
+  }
 
   const handleCellSave = useCallback(
     async (rowIndex: number, dayIndex: number, inputValue: string) => {
@@ -210,8 +204,8 @@ export function Timesheet() {
         projectName: proj.name,
         projectColor: proj.color,
         clientName: proj.clientName,
-        cells: Array(7).fill(null),
-        entryIds: Array(7).fill(null),
+        cells: Array(dates.length).fill(null),
+        entryIds: Array(dates.length).fill(null),
       },
     ])
     setNewProjectId('')
@@ -229,21 +223,32 @@ export function Timesheet() {
   )
   const grandTotal = columnTotals.reduce((a, b) => a + b, 0)
 
+  // Compute day metadata
+  const dayMeta = dates.map((dateStr) => {
+    const d = new Date(dateStr + 'T12:00:00')
+    const dow = d.getDay()
+    return {
+      dayNum: d.getDate(),
+      dayAbbr: DAY_ABBR[dow],
+      isWeekend: dow === 0 || dow === 6,
+    }
+  })
+
   return (
     <div>
       <h1 className="page-heading text-2xl font-bold text-terminal-text-bright mb-6 font-mono">
         timesheet
       </h1>
 
-      {/* Week navigation */}
+      {/* Month navigation */}
       <div className="flex items-center gap-3 mb-6">
-        <Button variant="outline" onClick={prevWeek} className="px-2 py-1 text-xs">
+        <Button variant="outline" onClick={prevMonth} className="px-2 py-1 text-xs">
           &#9664;
         </Button>
-        <span className="text-terminal-text-bright font-mono text-sm">
-          {formatWeekHeader(start, end)}
+        <span className="text-terminal-text-bright font-mono text-sm min-w-[180px] text-center">
+          {MONTH_NAMES[month - 1]} {year}
         </span>
-        <Button variant="outline" onClick={nextWeek} className="px-2 py-1 text-xs">
+        <Button variant="outline" onClick={nextMonth} className="px-2 py-1 text-xs">
           &#9654;
         </Button>
         <Button variant="outline" onClick={goToday} className="px-2 py-1 text-xs ml-2">
@@ -257,23 +262,23 @@ export function Timesheet() {
         <>
           {/* Grid table */}
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-terminal-border font-mono text-sm">
+            <table className="border-collapse border border-terminal-border font-mono text-xs">
               {/* Header */}
               <thead>
                 <tr className="bg-terminal-surface">
-                  <th className="border border-terminal-border px-3 py-2 text-left text-terminal-text-bright font-bold w-48">
+                  <th className="border border-terminal-border px-3 py-2 text-left text-terminal-text-bright font-bold w-44 sticky left-0 bg-terminal-surface z-10">
                     Project
                   </th>
-                  {dates.map((date, i) => (
+                  {dayMeta.map((dm, i) => (
                     <th
-                      key={date}
-                      className={`border border-terminal-border px-2 py-2 text-center text-terminal-text-bright font-bold w-20 ${i >= 5 ? 'opacity-60' : ''}`}
+                      key={dates[i]}
+                      className={`border border-terminal-border px-1 py-1 text-center text-terminal-text-bright font-bold min-w-[38px] ${dm.isWeekend ? 'opacity-50' : ''}`}
                     >
-                      <div>{DAY_LABELS[i]}</div>
-                      <div className="text-xs font-normal text-terminal-text">{formatDayDate(date)}</div>
+                      <div className="text-[10px]">{dm.dayAbbr}</div>
+                      <div className="text-[10px] font-normal text-terminal-text">{dm.dayNum}</div>
                     </th>
                   ))}
-                  <th className="border border-terminal-border px-3 py-2 text-center text-terminal-text-bright font-bold w-20">
+                  <th className="border border-terminal-border px-2 py-2 text-center text-terminal-text-bright font-bold w-16">
                     Total
                   </th>
                 </tr>
@@ -284,29 +289,26 @@ export function Timesheet() {
                   const rowTotal = row.cells.reduce<number>((sum, c) => sum + (c ?? 0), 0)
                   return (
                     <tr key={row.projectId} className="bg-terminal-bg-light">
-                      <td className="border border-terminal-border px-3 py-2">
+                      <td className="border border-terminal-border px-3 py-1.5 sticky left-0 bg-terminal-bg-light z-10">
                         <div className="flex items-center gap-2">
                           <div
-                            className="w-2.5 h-2.5 rounded-full shrink-0"
+                            className="w-2 h-2 rounded-full shrink-0"
                             style={{ backgroundColor: row.projectColor }}
                           />
-                          <span className="text-terminal-text-bright text-sm truncate">
+                          <span className="text-terminal-text-bright text-xs truncate max-w-[120px]">
                             {row.projectName}
                           </span>
-                          {row.clientName && (
-                            <span className="text-xs text-terminal-text">({row.clientName})</span>
-                          )}
                         </div>
                       </td>
                       {row.cells.map((cellMin, dayIndex) => (
                         <CellInput
                           key={`${row.projectId}-${dates[dayIndex]}`}
                           value={cellMin}
-                          isWeekend={dayIndex >= 5}
+                          isWeekend={dayMeta[dayIndex].isWeekend}
                           onSave={(val) => handleCellSave(rowIndex, dayIndex, val)}
                         />
                       ))}
-                      <td className="border border-terminal-border px-2 py-2 text-center text-terminal-text-bright font-bold">
+                      <td className="border border-terminal-border px-2 py-1.5 text-center text-terminal-text-bright font-bold text-xs">
                         {rowTotal > 0 ? formatDecimalHours(rowTotal) : ''}
                       </td>
                     </tr>
@@ -315,18 +317,18 @@ export function Timesheet() {
 
                 {/* Totals row */}
                 <tr className="border-t-2 border-terminal-border bg-terminal-surface">
-                  <td className="border border-terminal-border px-3 py-2 text-terminal-text-bright font-bold">
+                  <td className="border border-terminal-border px-3 py-1.5 text-terminal-text-bright font-bold sticky left-0 bg-terminal-surface z-10">
                     Total
                   </td>
                   {columnTotals.map((total, i) => (
                     <td
                       key={i}
-                      className={`border border-terminal-border px-2 py-2 text-center font-bold ${i >= 5 ? 'opacity-60' : ''} ${total > 0 ? 'text-terminal-text-bright' : 'text-terminal-text'}`}
+                      className={`border border-terminal-border px-1 py-1.5 text-center font-bold text-xs ${dayMeta[i].isWeekend ? 'opacity-50' : ''} ${total > 0 ? 'text-terminal-text-bright' : 'text-terminal-text'}`}
                     >
-                      {i >= 5 && total === 0 ? '\u2014' : total > 0 ? formatDecimalHours(total) : ''}
+                      {total > 0 ? formatDecimalHours(total) : ''}
                     </td>
                   ))}
-                  <td className="border border-terminal-border px-2 py-2 text-center font-bold text-terminal-green">
+                  <td className="border border-terminal-border px-2 py-1.5 text-center font-bold text-terminal-green text-xs">
                     {grandTotal > 0 ? formatDecimalHours(grandTotal) : ''}
                   </td>
                 </tr>
@@ -410,7 +412,7 @@ function CellInput({ value, isWeekend, onSave }: CellInputProps) {
 
   return (
     <td
-      className={`border border-terminal-border p-0 ${isWeekend ? 'opacity-60' : ''}`}
+      className={`border border-terminal-border p-0 ${isWeekend ? 'opacity-50' : ''}`}
     >
       <input
         type="text"
@@ -425,7 +427,7 @@ function CellInput({ value, isWeekend, onSave }: CellInputProps) {
         }}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        className="w-full h-full bg-transparent text-center text-terminal-text-bright font-mono text-sm px-2 py-2 outline-none focus:bg-terminal-surface focus:ring-1 focus:ring-terminal-green focus:shadow-[0_0_6px_rgba(57,255,20,0.3)]"
+        className="w-full h-full bg-transparent text-center text-terminal-text-bright font-mono text-xs px-0.5 py-1.5 outline-none focus:bg-terminal-surface focus:ring-1 focus:ring-terminal-green focus:shadow-[0_0_6px_rgba(57,255,20,0.3)] min-w-[38px]"
         inputMode="decimal"
       />
     </td>

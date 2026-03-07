@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify'
+import type { PdfTheme } from '@timesheet/shared'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { eq, and, gte, lte } from 'drizzle-orm'
@@ -80,6 +81,8 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
       year: string
       month: string
     }
+    const { theme: themeParam } = request.query as { theme?: string }
+    const theme: PdfTheme = themeParam === 'terminal' ? 'terminal' : 'classic'
 
     const yearNum = parseInt(year, 10)
     const monthNum = parseInt(month, 10)
@@ -179,7 +182,7 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
       totalHours,
       hourlyRate: hourlyRate ? formatGermanDecimal(hourlyRate) : null,
       totalAmount: totalAmount ? formatGermanAmount(totalAmount) : null,
-    })
+    }, theme)
 
     // 9. Generate PDF
     const pdfBuffer = await generatePdf(html)
@@ -210,6 +213,8 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
       year: string
       month: string
     }
+    const { theme: themeParam } = request.query as { theme?: string }
+    const theme: PdfTheme = themeParam === 'terminal' ? 'terminal' : 'classic'
 
     const yearNum = parseInt(year, 10)
     const monthNum = parseInt(month, 10)
@@ -235,6 +240,7 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
     try {
       cleanExpiredPdfs()
 
+      log(`Theme: ${theme}`)
       log('Fetching project data...')
       const [project] = await db
         .select()
@@ -329,7 +335,7 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
         totalHours,
         hourlyRate: hourlyRate ? formatGermanDecimal(hourlyRate) : null,
         totalAmount: totalAmount ? formatGermanAmount(totalAmount) : null,
-      })
+      }, theme)
 
       const pdfBuffer = await generatePdf(html, log)
 

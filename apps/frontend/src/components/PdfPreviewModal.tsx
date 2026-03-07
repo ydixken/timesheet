@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import type { PdfTheme } from '@timesheet/shared'
 import { useAuthStore } from '../store/auth'
 import { Button } from './ui/Button'
 
@@ -20,6 +21,7 @@ export function PdfPreviewModal({ projectId, projectName, isOpen, onClose }: Pdf
   const now = new Date()
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
+  const [theme, setTheme] = useState<PdfTheme>('terminal')
   const [phase, setPhase] = useState<Phase>('select')
   const [logs, setLogs] = useState<string[]>([])
   const [pdfToken, setPdfToken] = useState<string | null>(null)
@@ -67,7 +69,7 @@ export function PdfPreviewModal({ projectId, projectName, isOpen, onClose }: Pdf
     setErrorMsg(null)
 
     const token = useAuthStore.getState().getAccessToken()
-    const url = `/api/pdf/${projectId}/${year}/${month}/stream`
+    const url = `/api/pdf/${projectId}/${year}/${month}/stream?theme=${theme}`
     const abortController = new AbortController()
 
     fetch(url, {
@@ -141,7 +143,7 @@ export function PdfPreviewModal({ projectId, projectName, isOpen, onClose }: Pdf
       })
 
     return () => abortController.abort()
-  }, [projectId, year, month])
+  }, [projectId, year, month, theme])
 
   if (!isOpen) return null
 
@@ -155,7 +157,7 @@ export function PdfPreviewModal({ projectId, projectName, isOpen, onClose }: Pdf
         if (e.target === e.currentTarget) onClose()
       }}
     >
-      <div className="bg-terminal-bg-light border border-terminal-border rounded-lg w-full max-w-4xl mx-4 flex flex-col max-h-[90vh]">
+      <div className="bg-terminal-bg-light border border-terminal-border rounded-lg w-full max-w-6xl mx-4 flex flex-col max-h-[95vh]">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-terminal-border">
           <h2 className="text-terminal-text-bright font-mono text-sm font-bold">
@@ -172,7 +174,7 @@ export function PdfPreviewModal({ projectId, projectName, isOpen, onClose }: Pdf
         {/* Content */}
         <div className="flex-1 min-h-0 p-4">
           {phase === 'select' && (
-            <div className="flex flex-col items-center justify-center h-full min-h-[60vh] gap-6">
+            <div className="flex flex-col items-center justify-center h-full min-h-[80vh] gap-6">
               <div className="text-terminal-green font-mono text-sm whitespace-pre">
 {`  ___  ___  ___   ___            _
  | _ \\|   \\| __| | __|_ ___ __  | |_
@@ -210,6 +212,22 @@ export function PdfPreviewModal({ projectId, projectName, isOpen, onClose }: Pdf
                   </select>
                 </label>
               </div>
+              <div className="flex items-center gap-2 font-mono text-sm">
+                <span className="text-terminal-text">Theme:</span>
+                {(['classic', 'terminal'] as const).map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => setTheme(t)}
+                    className={`px-2 py-0.5 rounded cursor-pointer transition-colors ${
+                      theme === t
+                        ? 'bg-terminal-green/20 text-terminal-green border border-terminal-green'
+                        : 'text-terminal-text border border-terminal-border hover:border-terminal-text'
+                    }`}
+                  >
+                    [{t}]
+                  </button>
+                ))}
+              </div>
               <Button variant="filled" onClick={startGeneration}>
                 [generate]
               </Button>
@@ -217,7 +235,7 @@ export function PdfPreviewModal({ projectId, projectName, isOpen, onClose }: Pdf
           )}
 
           {phase === 'generating' && (
-            <div className="h-full min-h-[60vh] flex flex-col">
+            <div className="h-full min-h-[80vh] flex flex-col">
               <div className="flex-1 bg-terminal-bg rounded border border-terminal-border p-4 overflow-y-auto font-mono text-sm">
                 <div className="text-terminal-text mb-2">
                   <span className="text-terminal-green">$</span> generate-pdf --project &quot;{projectName}&quot; --period {year}-{String(month).padStart(2, '0')}
@@ -245,13 +263,13 @@ export function PdfPreviewModal({ projectId, projectName, isOpen, onClose }: Pdf
           {phase === 'ready' && pdfUrl && (
             <iframe
               src={pdfUrl}
-              className="w-full h-full min-h-[60vh] rounded border border-terminal-border bg-white"
+              className="w-full h-full min-h-[80vh] rounded border border-terminal-border bg-white"
               title={`PDF preview for ${projectName}`}
             />
           )}
 
           {phase === 'error' && (
-            <div className="h-full min-h-[60vh] flex flex-col items-center justify-center gap-4">
+            <div className="h-full min-h-[80vh] flex flex-col items-center justify-center gap-4">
               <div className="text-terminal-danger font-mono text-sm">
                 Error: {errorMsg}
               </div>

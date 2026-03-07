@@ -42,6 +42,16 @@ export function getWeekDates(refDate: Date): { start: string; end: string; dates
   return { start: dates[0], end: dates[6], dates }
 }
 
+export function getMonthDates(year: number, month: number): { start: string; end: string; dates: string[] } {
+  const lastDay = new Date(year, month, 0).getDate()
+  const dates: string[] = []
+  for (let d = 1; d <= lastDay; d++) {
+    const date = new Date(year, month - 1, d)
+    dates.push(date.toISOString().split('T')[0])
+  }
+  return { start: dates[0], end: dates[dates.length - 1], dates }
+}
+
 export function formatDateHeading(dateStr: string): string {
   const date = new Date(dateStr + 'T12:00:00') // noon to avoid timezone issues
   const today = new Date()

@@ -1,3 +1,5 @@
+import type { PdfTheme } from '@timesheet/shared'
+
 export interface PdfDayRow {
   date: string
   hours: string | null
@@ -45,7 +47,7 @@ function buildDayRows(days: PdfDayRow[]): string {
     .join('\n')
 }
 
-export function buildPdfHtml(data: PdfTemplateData): string {
+function buildClassicPdfHtml(data: PdfTemplateData): string {
   const addressHtml = data.clientAddress
     ? escapeHtml(data.clientAddress).replace(/\n/g, '<br>')
     : ''
@@ -392,4 +394,377 @@ export function buildPdfHtml(data: PdfTemplateData): string {
 
 </body>
 </html>`
+}
+
+function buildTerminalDayRows(days: PdfDayRow[]): string {
+  return days
+    .map((day, i) => {
+      const lineNo = String(i + 1).padStart(2, '0')
+      if (day.isWeekend) {
+        return `<tr class="t-weekend">
+          <td class="t-gutter">${lineNo}</td>
+          <td class="t-date">// ${escapeHtml(day.date)}</td>
+          <td class="t-hours">${day.hours ? `${escapeHtml(day.hours)}&nbsp;h` : '---'}</td>
+          <td class="t-desc">${day.description ? `// ${escapeHtml(day.description)}` : ''}</td>
+        </tr>`
+      }
+      return `<tr class="t-row${i % 2 === 0 ? ' t-even' : ''}">
+        <td class="t-gutter">${lineNo}</td>
+        <td class="t-date">${escapeHtml(day.date)}</td>
+        <td class="t-hours">${day.hours ? `${escapeHtml(day.hours)}&nbsp;h` : '<span class="t-muted">---</span>'}</td>
+        <td class="t-desc">${escapeHtml(day.description)}</td>
+      </tr>`
+    })
+    .join('\n')
+}
+
+function buildTerminalPdfHtml(data: PdfTemplateData): string {
+  const clientLogo = data.clientLogoUrl
+    ? `<img src="${data.clientLogoUrl}" class="t-logo" alt="Client Logo">`
+    : ''
+
+  const summaryLines: string[] = [
+    `<span class="t-cyan">total_hours</span>  = <span class="t-bold">${escapeHtml(data.totalHours)} h</span>`,
+  ]
+  if (data.hourlyRate) {
+    summaryLines.push(
+      `<span class="t-cyan">hourly_rate</span>  = <span class="t-bold">${escapeHtml(data.hourlyRate)} EUR/h</span>`,
+      `<span class="t-separator">${'\u2500'.repeat(25)}</span>`,
+      `<span class="t-cyan">total_amount</span> = <span class="t-bold">${escapeHtml(data.totalAmount!)} EUR</span>  &lt;&lt;&lt;`,
+    )
+  }
+
+  return `<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
+
+  @page {
+    size: A4 portrait;
+    margin: 12mm 12mm;
+  }
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 8pt;
+    color: #0a0e14;
+    line-height: 1.3;
+    background: #fff;
+  }
+
+  /* --- Header --- */
+  .t-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding-bottom: 6px;
+    border-bottom: 1px solid #39ff14;
+    margin-bottom: 0;
+  }
+
+  .t-header-accent {
+    height: 2px;
+    background: #0a0e14;
+    margin-bottom: 14px;
+  }
+
+  .t-app-logo {
+    font-size: 16pt;
+    font-weight: 700;
+    color: #0a0e14;
+  }
+
+  .t-app-logo .t-tilde {
+    color: #39ff14;
+  }
+
+  .t-app-repo {
+    display: block;
+    font-size: 6.5pt;
+    color: #888;
+    margin-top: 1px;
+  }
+
+  .t-logo {
+    max-height: 48px;
+    max-width: 160px;
+    object-fit: contain;
+  }
+
+  /* --- Title --- */
+  .t-title {
+    font-size: 11pt;
+    margin-bottom: 12px;
+  }
+
+  .t-title .t-prompt {
+    color: #39ff14;
+  }
+
+  .t-title .t-cmd {
+    color: #0a0e14;
+    font-weight: 700;
+  }
+
+  /* --- Meta --- */
+  .t-meta {
+    margin-bottom: 12px;
+    font-size: 9pt;
+  }
+
+  .t-meta table {
+    border-collapse: collapse;
+  }
+
+  .t-meta td {
+    padding: 2px 0;
+    vertical-align: top;
+  }
+
+  .t-meta-label {
+    color: #0a0e14;
+    font-weight: 700;
+    padding-right: 20px;
+    white-space: nowrap;
+    width: 110px;
+  }
+
+  .t-meta-value {
+    color: #0a0e14;
+  }
+
+  /* --- Entries table --- */
+  .t-entries {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 12px;
+    font-size: 8pt;
+    line-height: 1.3;
+  }
+
+  .t-entries thead th {
+    background: #0a0e14;
+    color: #39ff14;
+    font-weight: 700;
+    padding: 4px 6px;
+    text-align: left;
+    font-size: 8pt;
+  }
+
+  .t-entries thead th.t-hours {
+    text-align: right;
+  }
+
+  .t-entries thead th.t-gutter {
+    width: 20px;
+    background: #0a0e14;
+  }
+
+  .t-entries td {
+    padding: 3px 6px;
+    vertical-align: top;
+  }
+
+  .t-entries .t-gutter {
+    width: 20px;
+    font-size: 6pt;
+    color: #ccc;
+    text-align: right;
+    padding-right: 6px;
+    user-select: none;
+  }
+
+  .t-entries .t-date {
+    width: 72px;
+    white-space: nowrap;
+    font-weight: 500;
+  }
+
+  .t-entries .t-hours {
+    width: 50px;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .t-entries .t-desc {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .t-entries .t-row {
+    border-left: 2px solid #39ff14;
+  }
+
+  .t-entries .t-even {
+    background: #fafafa;
+  }
+
+  .t-entries .t-weekend {
+    background: #f5f5f5;
+    color: #aaa;
+    border-left: 2px solid transparent;
+  }
+
+  .t-entries .t-weekend .t-hours {
+    color: #ccc;
+  }
+
+  .t-muted {
+    color: #ccc;
+  }
+
+  /* --- Summary --- */
+  .t-summary {
+    margin-bottom: 14px;
+    font-size: 10pt;
+    white-space: pre;
+  }
+
+  .t-summary-header {
+    color: #0a0e14;
+  }
+
+  .t-summary-header .t-cyan {
+    color: #0a0e14;
+  }
+
+  .t-summary-body {
+    padding-left: 12px;
+  }
+
+  .t-bold {
+    color: #0a0e14;
+    font-weight: 700;
+  }
+
+  .t-green-bold {
+    color: #39ff14;
+    font-weight: 700;
+  }
+
+  .t-cyan {
+    color: #0a0e14;
+  }
+
+  .t-separator {
+    color: #ccc;
+  }
+
+  /* --- Signature --- */
+  .t-signature {
+    font-size: 9pt;
+    margin-bottom: 12px;
+    page-break-inside: avoid;
+  }
+
+  .t-sig-comment {
+    color: #888;
+    margin-bottom: 4px;
+  }
+
+  .t-sig-line {
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+  }
+
+  .t-sig-line .t-prompt-gt {
+    color: #39ff14;
+    font-weight: 700;
+  }
+
+  .t-sig-field {
+    border-bottom: 1px solid #0a0e14;
+    min-width: 150px;
+    display: inline-block;
+    margin: 0 4px;
+  }
+
+  /* --- Footer --- */
+  .t-footer {
+    text-align: center;
+    font-size: 6pt;
+    color: #ddd;
+    margin-top: 8px;
+  }
+</style>
+</head>
+<body>
+
+<div class="t-header">
+  <div>
+    <span class="t-app-logo"><span class="t-tilde">~</span>/timesheet_</span>
+    <span class="t-app-repo">// gitlab.com/cluster.fail/timesheet</span>
+  </div>
+  <div>${clientLogo}</div>
+</div>
+<div class="t-header-accent"></div>
+
+<div class="t-title">
+  <span class="t-prompt">$</span> <span class="t-cmd">./report</span> --year ${escapeHtml(data.periodRange.slice(6, 10))} --month ${escapeHtml(data.periodRange.slice(3, 5))}
+</div>
+
+<div class="t-meta">
+  <table>
+    <tr>
+      <td class="t-meta-label">[freelancer]</td>
+      <td class="t-meta-value">${escapeHtml(data.freelancerName)}</td>
+    </tr>
+    <tr>
+      <td class="t-meta-label">[project]</td>
+      <td class="t-meta-value">${escapeHtml(data.projectName)}</td>
+    </tr>
+    <tr>
+      <td class="t-meta-label">[client]</td>
+      <td class="t-meta-value">${escapeHtml(data.clientName)}</td>
+    </tr>
+    <tr>
+      <td class="t-meta-label">[period]</td>
+      <td class="t-meta-value">${escapeHtml(data.period)}&nbsp;&nbsp;(${escapeHtml(data.periodRange)})</td>
+    </tr>
+  </table>
+</div>
+
+<table class="t-entries">
+  <thead>
+    <tr>
+      <th class="t-gutter"></th>
+      <th class="t-date">[date]</th>
+      <th class="t-hours">[hours]</th>
+      <th class="t-desc">[desc]</th>
+    </tr>
+  </thead>
+  <tbody>
+    ${buildTerminalDayRows(data.days)}
+  </tbody>
+</table>
+
+<div class="t-summary">
+  <div class="t-summary-header">---[ <span class="t-cyan">summary</span> ]---</div>
+  <div class="t-summary-body">${summaryLines.join('\n  ')}</div>
+</div>
+
+<div class="t-signature">
+  <div class="t-sig-comment">// sign-off</div>
+  <div class="t-sig-line">
+    <span class="t-prompt-gt">&gt;</span> approved_by: <span class="t-sig-field"></span> date: <span class="t-sig-field" style="min-width:100px"></span>
+  </div>
+</div>
+
+<div class="t-footer">EOF</div>
+
+</body>
+</html>`
+}
+
+export function buildPdfHtml(data: PdfTemplateData, theme: PdfTheme = 'classic'): string {
+  return theme === 'terminal' ? buildTerminalPdfHtml(data) : buildClassicPdfHtml(data)
 }

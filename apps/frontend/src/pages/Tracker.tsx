@@ -11,7 +11,7 @@ import {
   formatDuration,
   formatTimeRange,
   parseHoursToMinutes,
-  getWeekDates,
+  getMonthDates,
   formatDateHeading,
   groupEntriesByDate,
 } from '../lib/time'
@@ -31,7 +31,9 @@ export function Tracker() {
   const { entries, loading, fetch: fetchEntries, create, update, remove } = useEntries()
   const { projects, fetch: fetchProjects } = useProjects()
 
-  const [weekOffset, setWeekOffset] = useState(0)
+  const now = new Date()
+  const [year, setYear] = useState(now.getFullYear())
+  const [month, setMonth] = useState(now.getMonth() + 1)
   const [description, setDescription] = useState('')
   const [projectId, setProjectId] = useState('')
   const [entryDate, setEntryDate] = useState(todayStr)
@@ -44,30 +46,24 @@ export function Tracker() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  const week = useMemo(() => {
-    const ref = new Date()
-    ref.setDate(ref.getDate() + weekOffset * 7)
-    return getWeekDates(ref)
-  }, [weekOffset])
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ]
 
-  const weekLabel = useMemo(() => {
-    const s = new Date(week.start + 'T12:00:00')
-    const e = new Date(week.end + 'T12:00:00')
-    const fmt = (d: Date) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-    return `${fmt(s)} – ${fmt(e)}, ${e.getFullYear()}`
-  }, [week])
+  const monthRange = useMemo(() => getMonthDates(year, month), [year, month])
 
-  const fetchCurrentWeek = useCallback(() => {
-    fetchEntries({ start: week.start, end: week.end })
-  }, [fetchEntries, week])
+  const fetchCurrentMonth = useCallback(() => {
+    fetchEntries({ start: monthRange.start, end: monthRange.end })
+  }, [fetchEntries, monthRange])
 
   useEffect(() => {
     fetchProjects()
   }, [fetchProjects])
 
   useEffect(() => {
-    fetchCurrentWeek()
-  }, [fetchCurrentWeek])
+    fetchCurrentMonth()
+  }, [fetchCurrentMonth])
 
   const totalMinutes = useMemo(
     () => entries.reduce((sum, e) => sum + e.durationMin, 0),
@@ -130,7 +126,7 @@ export function Tracker() {
       setDurationInput('')
       setStartTime('')
       setEndTime('')
-      fetchCurrentWeek()
+      fetchCurrentMonth()
     } catch (err) {
       setFormError(err instanceof Error ? err.message : 'Failed to add entry')
     }
@@ -222,27 +218,33 @@ export function Tracker() {
         )}
       </div>
 
-      {/* Week nav */}
+      {/* Month nav */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setWeekOffset((o) => o - 1)}
+            onClick={() => {
+              if (month === 1) { setYear((y) => y - 1); setMonth(12) }
+              else setMonth((m) => m - 1)
+            }}
             className="text-terminal-text hover:text-terminal-green font-mono cursor-pointer"
           >
             &lt;
           </button>
-          <span className="font-mono text-sm text-terminal-text-bright">
-            Week of {weekLabel}
+          <span className="font-mono text-sm text-terminal-text-bright min-w-[160px] text-center">
+            {MONTH_NAMES[month - 1]} {year}
           </span>
           <button
-            onClick={() => setWeekOffset((o) => o + 1)}
+            onClick={() => {
+              if (month === 12) { setYear((y) => y + 1); setMonth(1) }
+              else setMonth((m) => m + 1)
+            }}
             className="text-terminal-text hover:text-terminal-green font-mono cursor-pointer"
           >
             &gt;
           </button>
-          {weekOffset !== 0 && (
+          {(year !== now.getFullYear() || month !== now.getMonth() + 1) && (
             <button
-              onClick={() => setWeekOffset(0)}
+              onClick={() => { setYear(now.getFullYear()); setMonth(now.getMonth() + 1) }}
               className="text-xs font-mono text-terminal-blue hover:text-terminal-blue/80 cursor-pointer ml-2"
             >
               [today]
@@ -259,7 +261,7 @@ export function Tracker() {
         <p className="text-terminal-text font-mono animate-blink">loading...</p>
       ) : entries.length === 0 ? (
         <div className="text-center py-16">
-          <p className="text-terminal-text font-mono">No entries this week. Start tracking!</p>
+          <p className="text-terminal-text font-mono">No entries this month. Start tracking!</p>
         </div>
       ) : (
         <div className="space-y-6">
