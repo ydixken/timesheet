@@ -7,6 +7,10 @@ metadata:
     app.kubernetes.io/component: backend
 spec:
   replicas: {{ .Values.backend.replicas }}
+  {{- if .Values.backend.persistence.uploads.enabled }}
+  strategy:
+    type: Recreate
+  {{- end }}
   selector:
     matchLabels:
       {{- include "timesheet.selectorLabels" . | nindent 6 }}
