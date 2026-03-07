@@ -20,7 +20,7 @@ COPY apps/backend apps/backend
 RUN pnpm --filter @timesheet/shared build && pnpm --filter @timesheet/backend build
 
 # Stage 3: Production image with Puppeteer
-FROM ghcr.io/puppeteer/puppeteer:22 AS final
+FROM ghcr.io/puppeteer/puppeteer:24 AS final
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
