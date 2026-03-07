@@ -57,27 +57,22 @@ async function readLogoAsDataUrl(logoPath: string): Promise<string | null> {
 
 export default async function pdfRoutes(fastify: FastifyInstance) {
   // Download cached PDF by token — no auth required, the UUID token IS the auth.
-  // Registered in its own scope so the addHook below doesn't apply to it.
-  fastify.register(async (scope) => {
-    scope.get('/pdf/download/:token', async (request, reply) => {
-      const { token } = request.params as { token: string }
-      cleanExpiredPdfs()
-      const cached = pdfCache.get(token)
-      if (!cached) {
-        return reply.code(404).send({ error: 'PDF not found or expired' })
-      }
-      const { dl } = request.query as { dl?: string }
-      const disposition = dl === '1' ? 'attachment' : 'inline'
-      return reply
-        .header('Content-Type', 'application/pdf')
-        .header('Content-Disposition', `${disposition}; filename="${cached.filename}"`)
-        .send(cached.buffer)
-    })
+  fastify.get('/pdf/download/:token', async (request, reply) => {
+    const { token } = request.params as { token: string }
+    cleanExpiredPdfs()
+    const cached = pdfCache.get(token)
+    if (!cached) {
+      return reply.code(404).send({ error: 'PDF not found or expired' })
+    }
+    const { dl } = request.query as { dl?: string }
+    const disposition = dl === '1' ? 'attachment' : 'inline'
+    return reply
+      .header('Content-Type', 'application/pdf')
+      .header('Content-Disposition', `${disposition}; filename="${cached.filename}"`)
+      .send(cached.buffer)
   })
 
-  fastify.addHook('preHandler', fastify.authenticate)
-
-  fastify.get('/pdf/:projectId/:year/:month', async (request, reply) => {
+  fastify.get('/pdf/:projectId/:year/:month', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     const { projectId, year, month } = request.params as {
       projectId: string
       year: string
@@ -209,7 +204,7 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
   })
 
   // SSE stream endpoint — streams progress logs then returns a download token
-  fastify.get('/pdf/:projectId/:year/:month/stream', async (request, reply) => {
+  fastify.get('/pdf/:projectId/:year/:month/stream', { preHandler: [fastify.authenticate] }, async (request, reply) => {
     const { projectId, year, month } = request.params as {
       projectId: string
       year: string
