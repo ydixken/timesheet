@@ -429,7 +429,7 @@ function buildTerminalPdfHtml(data: PdfTemplateData): string {
   if (data.hourlyRate) {
     summaryLines.push(
       `<span class="t-cyan">hourly_rate</span>  = <span class="t-bold">${escapeHtml(data.hourlyRate)} EUR/h</span>`,
-      `<span class="t-separator">${'\u2500'.repeat(25)}</span>`,
+      `<span class="t-separator">${'\u2500'.repeat(30)}</span>`,
       `<span class="t-cyan">total_amount</span> = <span class="t-bold">${escapeHtml(data.totalAmount!)} EUR</span>  &lt;&lt;&lt;`,
     )
   }
@@ -628,16 +628,8 @@ function buildTerminalPdfHtml(data: PdfTemplateData): string {
     white-space: pre;
   }
 
-  .t-summary-header {
+  .t-summary .t-cyan {
     color: #0a0e14;
-  }
-
-  .t-summary-header .t-cyan {
-    color: #0a0e14;
-  }
-
-  .t-summary-body {
-    padding-left: 12px;
   }
 
   .t-bold {
@@ -747,10 +739,8 @@ function buildTerminalPdfHtml(data: PdfTemplateData): string {
   </tbody>
 </table>
 
-<div class="t-summary">
-  <div class="t-summary-header">---[ <span class="t-cyan">summary</span> ]---</div>
-  <div class="t-summary-body">${summaryLines.join('\n  ')}</div>
-</div>
+<div class="t-summary">---[ <span class="t-cyan">summary</span> ]---
+  ${summaryLines.join('\n  ')}</div>
 
 <div class="t-signature">
   <div class="t-sig-comment">// sign-off</div>
