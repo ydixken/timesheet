@@ -114,7 +114,7 @@ export function Clients() {
                     {formatDecimalHours(client.totalMinutes)}h
                   </td>
                   <td className="px-4 py-3 text-right">
-                    <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className={`flex items-center justify-end gap-1 transition-opacity ${deletingId === client.id ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                       <button
                         onClick={() => handleEdit(client)}
                         className="text-terminal-text hover:text-terminal-blue cursor-pointer p-1"
