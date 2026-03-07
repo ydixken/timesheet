@@ -290,7 +290,7 @@ export function Dashboard() {
                         {p.budgetHours !== null && (
                           <div className="flex justify-between mt-0.5 text-xs text-terminal-text">
                             <span>{p.trackedHours.toFixed(1)}h tracked</span>
-                            <span>{p.budgetHours}h budget</span>
+                            <span>{Math.max(p.budgetHours - p.trackedHours, 0).toFixed(1)}h remaining</span>
                           </div>
                         )}
                       </li>

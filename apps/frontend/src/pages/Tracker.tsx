@@ -395,7 +395,7 @@ function EntryRow({
             nb
           </span>
         )}
-        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className={`flex items-center gap-1 transition-opacity ${isConfirmingDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
           <button
             onClick={onEdit}
             className="text-terminal-text hover:text-terminal-blue cursor-pointer p-1"
