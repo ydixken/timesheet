@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify'
 import type { PdfTheme } from '@timesheet/shared'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { eq, and, gte, lte } from 'drizzle-orm'
+import { eq, and, gte, lte, inArray } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { projects, clients, timeEntries, pdfExports } from '../db/schema.js'
 import { config } from '../config.js'
@@ -10,6 +10,7 @@ import { buildPdfHtml } from '../services/pdf.template.js'
 import type { PdfDayRow } from '../services/pdf.template.js'
 import { generatePdf } from '../services/pdf.service.js'
 import { randomUUID } from 'node:crypto'
+import archiver from 'archiver'
 
 const DAY_NAMES = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa']
 
@@ -65,9 +66,11 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
       return reply.code(404).send({ error: 'PDF not found or expired' })
     }
     const { dl } = request.query as { dl?: string }
-    const disposition = dl === '1' ? 'attachment' : 'inline'
+    const isZip = cached.filename.endsWith('.zip')
+    const contentType = isZip ? 'application/zip' : 'application/pdf'
+    const disposition = dl === '1' || isZip ? 'attachment' : 'inline'
     return reply
-      .header('Content-Type', 'application/pdf')
+      .header('Content-Type', contentType)
       .header('Content-Disposition', `${disposition}; filename="${cached.filename}"`)
       .send(cached.buffer)
   })
@@ -357,6 +360,237 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
 
       log('Export complete')
       send('done', JSON.stringify({ token, filename }))
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Unknown error'
+      send('error', msg)
+    } finally {
+      reply.raw.end()
+    }
+  })
+
+  // SSE stream endpoint for ZIP export of all projects in a month
+  fastify.post('/pdf/zip/stream', { preHandler: [fastify.authenticate] }, async (request, reply) => {
+    const body = request.body as {
+      year: number
+      month: number
+      theme?: string
+      projectIds?: string[]
+    }
+
+    const yearNum = body.year
+    const monthNum = body.month
+    const theme: PdfTheme = body.theme === 'terminal' ? 'terminal' : 'classic'
+
+    if (
+      !yearNum || !monthNum ||
+      isNaN(yearNum) || isNaN(monthNum) ||
+      monthNum < 1 || monthNum > 12
+    ) {
+      return reply.code(400).send({ error: 'Invalid year or month' })
+    }
+
+    // Set up SSE
+    reply.hijack()
+    reply.raw.writeHead(200, {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      Connection: 'keep-alive',
+    })
+
+    const send = (event: string, data: string) => {
+      reply.raw.write(`event: ${event}\ndata: ${data}\n\n`)
+    }
+
+    const log = (msg: string) => send('log', msg)
+
+    try {
+      cleanExpiredPdfs()
+
+      const lastDay = new Date(yearNum, monthNum, 0).getDate()
+      const startDate = `${yearNum}-${pad2(monthNum)}-01`
+      const endDate = `${yearNum}-${pad2(monthNum)}-${pad2(lastDay)}`
+
+      // Determine which projects to export
+      let projectList: typeof projects.$inferSelect[]
+
+      if (body.projectIds && body.projectIds.length > 0) {
+        log(`Fetching ${body.projectIds.length} specified projects...`)
+        projectList = await db
+          .select()
+          .from(projects)
+          .where(inArray(projects.id, body.projectIds))
+      } else {
+        log(`Finding projects with entries in ${pad2(monthNum)}/${yearNum}...`)
+        // Find all projects that have time entries in the given month
+        const projectIdsWithEntries = await db
+          .selectDistinct({ projectId: timeEntries.projectId })
+          .from(timeEntries)
+          .where(
+            and(
+              gte(timeEntries.date, startDate),
+              lte(timeEntries.date, endDate),
+            ),
+          )
+
+        if (projectIdsWithEntries.length === 0) {
+          send('error', 'No projects with entries found for this month')
+          reply.raw.end()
+          return
+        }
+
+        const ids = projectIdsWithEntries.map((r) => r.projectId)
+        projectList = await db
+          .select()
+          .from(projects)
+          .where(inArray(projects.id, ids))
+      }
+
+      log(`Found ${projectList.length} project(s) to export`)
+      log(`Theme: ${theme}`)
+
+      // Fetch all needed clients in one query
+      const clientIds = [...new Set(projectList.map((p) => p.clientId).filter(Boolean))] as string[]
+      const clientMap = new Map<string, typeof clients.$inferSelect>()
+      if (clientIds.length > 0) {
+        const clientList = await db
+          .select()
+          .from(clients)
+          .where(inArray(clients.id, clientIds))
+        for (const c of clientList) {
+          clientMap.set(c.id, c)
+        }
+      }
+
+      // Generate PDFs for each project
+      const pdfBuffers: { buffer: Buffer; filename: string }[] = []
+
+      for (let i = 0; i < projectList.length; i++) {
+        const project = projectList[i]
+        const client = project.clientId ? clientMap.get(project.clientId) ?? null : null
+        log(`[${i + 1}/${projectList.length}] Generating PDF: ${project.name}...`)
+
+        // Fetch entries for this project
+        const entries = await db
+          .select()
+          .from(timeEntries)
+          .where(
+            and(
+              eq(timeEntries.projectId, project.id),
+              gte(timeEntries.date, startDate),
+              lte(timeEntries.date, endDate),
+            ),
+          )
+          .orderBy(timeEntries.date)
+
+        if (entries.length === 0) {
+          log(`  Skipping ${project.name} — no entries`)
+          continue
+        }
+
+        log(`  ${entries.length} entries found`)
+
+        // Build day rows
+        const days: PdfDayRow[] = []
+        for (let day = 1; day <= lastDay; day++) {
+          const date = new Date(yearNum, monthNum - 1, day)
+          const dateStr = `${yearNum}-${pad2(monthNum)}-${pad2(day)}`
+          const dayOfWeek = date.getDay()
+          const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
+          const dayEntries = entries.filter((e) => e.date === dateStr)
+          const totalMin = dayEntries.reduce((sum, e) => sum + e.durationMin, 0)
+          const descriptions = dayEntries
+            .map((e) => e.description)
+            .filter(Boolean)
+            .join(', ')
+          days.push({
+            date: `${DAY_NAMES[dayOfWeek]} ${pad2(day)}.${pad2(monthNum)}.`,
+            hours: totalMin > 0 ? formatGermanDecimal(totalMin / 60) : null,
+            description: descriptions,
+            isWeekend,
+          })
+        }
+
+        const clientLogoUrl = client?.logoPath
+          ? await readLogoAsDataUrl(client.logoPath)
+          : null
+
+        const totalMinutes = entries.reduce((sum, e) => sum + e.durationMin, 0)
+        const totalHours = formatGermanDecimal(totalMinutes / 60)
+        const hourlyRate =
+          project.showAmount && project.hourlyRate
+            ? parseFloat(project.hourlyRate)
+            : null
+        const totalAmount = hourlyRate ? hourlyRate * (totalMinutes / 60) : null
+
+        const html = buildPdfHtml({
+          freelancerName: 'Yannick Dixken',
+          projectName: project.name,
+          clientName: client?.name || 'Unknown',
+          clientAddress: client?.address || null,
+          period: `${MONTH_NAMES[monthNum - 1]} ${yearNum}`,
+          periodRange: `01.${pad2(monthNum)}.${yearNum} \u2013 ${pad2(lastDay)}.${pad2(monthNum)}.${yearNum}`,
+          freelancerLogoUrl: null,
+          clientLogoUrl,
+          days,
+          totalHours,
+          hourlyRate: hourlyRate ? formatGermanDecimal(hourlyRate) : null,
+          totalAmount: totalAmount ? formatGermanAmount(totalAmount) : null,
+        }, theme)
+
+        const pdfBuffer = await generatePdf(html)
+
+        const clientSlug = (client?.name || 'unknown')
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+        const filename = `timesheet_${clientSlug}_${yearNum}-${pad2(monthNum)}.pdf`
+
+        pdfBuffers.push({ buffer: pdfBuffer, filename })
+
+        // Log export
+        await db.insert(pdfExports).values({
+          projectId: project.id,
+          month: startDate,
+          filename,
+        })
+
+        log(`  PDF ready (${(pdfBuffer.length / 1024).toFixed(1)} KB)`)
+      }
+
+      if (pdfBuffers.length === 0) {
+        send('error', 'No PDFs generated — no entries found for any project')
+        reply.raw.end()
+        return
+      }
+
+      // Bundle into ZIP
+      log(`Bundling ${pdfBuffers.length} PDF(s) into ZIP...`)
+
+      const zipBuffer = await new Promise<Buffer>((resolve, reject) => {
+        const archive = archiver('zip', { zlib: { level: 9 } })
+        const chunks: Buffer[] = []
+
+        archive.on('data', (chunk: Buffer) => chunks.push(chunk))
+        archive.on('end', () => resolve(Buffer.concat(chunks)))
+        archive.on('error', reject)
+
+        for (const { buffer, filename } of pdfBuffers) {
+          archive.append(buffer, { name: filename })
+        }
+
+        archive.finalize()
+      })
+
+      const zipFilename = `timesheets_${yearNum}-${pad2(monthNum)}.zip`
+      const token = randomUUID()
+      pdfCache.set(token, {
+        buffer: zipBuffer,
+        filename: zipFilename,
+        expires: Date.now() + 5 * 60 * 1000,
+      })
+
+      log(`ZIP ready (${(zipBuffer.length / 1024).toFixed(1)} KB)`)
+      log('Export complete')
+      send('done', JSON.stringify({ token, filename: zipFilename }))
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Unknown error'
       send('error', msg)

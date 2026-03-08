@@ -5,6 +5,7 @@ import { useProjects } from '../hooks/useProjects'
 import { useClients } from '../hooks/useClients'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { ZipExportModal } from '../components/ZipExportModal'
 import { formatDecimalHours } from '../lib/time'
 
 type ProjectWithClient = Project & { clientName: string | null }
@@ -20,6 +21,7 @@ export function Projects() {
   const { clients, fetch: fetchClients } = useClients()
   const [filter, setFilter] = useState<Filter>('all')
   const [showCreate, setShowCreate] = useState(false)
+  const [showZipExport, setShowZipExport] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -50,9 +52,14 @@ export function Projects() {
         <h1 className="page-heading text-2xl font-bold text-terminal-text-bright font-mono">
           projects
         </h1>
-        <Button variant="filled" onClick={() => setShowCreate(true)}>
-          [+ new]
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" onClick={() => setShowZipExport(true)}>
+            [export month]
+          </Button>
+          <Button variant="filled" onClick={() => setShowCreate(true)}>
+            [+ new]
+          </Button>
+        </div>
       </div>
 
       {/* Filter */}
@@ -99,6 +106,11 @@ export function Projects() {
           ))}
         </div>
       )}
+
+      <ZipExportModal
+        isOpen={showZipExport}
+        onClose={() => setShowZipExport(false)}
+      />
     </div>
   )
 }
