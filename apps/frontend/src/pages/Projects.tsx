@@ -225,7 +225,7 @@ function CreateProjectForm({
         estimatedHours: estimatedHours ? parseFloat(estimatedHours) : null,
         billable,
         showAmount,
-        roundingMin: roundingMin ? (parseInt(roundingMin) as 5 | 6 | 10 | 15 | 30) : null,
+        roundingMin: roundingMin ? (parseInt(roundingMin) as 5 | 10 | 15 | 30) : null,
         active: true,
       })
     } catch (e) {
@@ -329,7 +329,6 @@ function CreateProjectForm({
             >
               <option value="">No rounding</option>
               <option value="5">5 min</option>
-              <option value="6">6 min (0.1h)</option>
               <option value="10">10 min</option>
               <option value="15">15 min (quarter hour)</option>
               <option value="30">30 min (half hour)</option>

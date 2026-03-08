@@ -231,7 +231,7 @@ export function PdfPreviewModal({ projectId, projectName, isOpen, onClose, round
               </div>
               {roundingMin && (
                 <p className="text-terminal-text font-mono text-xs mt-2">
-                  Rounding: {roundingMin === 6 ? '6 min (0.1h)' : `${roundingMin} min`}
+                  Rounding: {roundingMin} min
                 </p>
               )}
               <Button variant="filled" onClick={startGeneration}>

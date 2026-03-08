@@ -13,12 +13,6 @@ describe('roundMinutes', () => {
     expect(roundMinutes(13, 5)).toBe(15)
   })
 
-  it('rounds to nearest 6 min (0.1h)', () => {
-    expect(roundMinutes(33, 6)).toBe(36)
-    expect(roundMinutes(3, 6)).toBe(6)
-    expect(roundMinutes(2, 6)).toBe(0)
-  })
-
   it('rounds to nearest 15 min', () => {
     expect(roundMinutes(7, 15)).toBe(0)
     expect(roundMinutes(8, 15)).toBe(15)

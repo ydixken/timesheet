@@ -1,4 +1,4 @@
-export const ROUNDING_OPTIONS = [5, 6, 10, 15, 30] as const
+export const ROUNDING_OPTIONS = [5, 10, 15, 30] as const
 export type RoundingMinutes = (typeof ROUNDING_OPTIONS)[number]
 
 export function roundMinutes(minutes: number, roundTo: number): number {

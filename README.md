@@ -52,7 +52,7 @@ Need to send timesheets for all your projects at the end of the month? The **exp
 
 ### Smart Time Rounding
 
-Most freelancers bill in rounded increments — quarter hours, six-minute blocks (0.1h), you name it. Each project can have its own rounding setting (5, 6, 10, 15, or 30 minutes), and it kicks in when you generate a PDF. The rounding happens per day: each day's total gets rounded to the nearest increment, and the monthly total is the sum of those rounded values. Your raw tracked data stays untouched — the rounding only affects the customer-facing PDF so you always have exact numbers for your own analytics. The customer just sees clean, rounded hours as if that's what you tracked.
+Most freelancers bill in rounded increments - quarter hours, ten-minute blocks, you name it. Each project can have its own rounding setting (5, 10, 15, or 30 minutes), and it kicks in when you generate a PDF. The rounding happens per day: each day's total gets rounded to the nearest increment, and the monthly total is the sum of those rounded values. Your raw tracked data stays untouched - the rounding only affects the customer-facing PDF so you always have exact numbers for your own analytics. The customer just sees clean, rounded hours as if that's what you tracked.
 
 ## Tech Stack
 
