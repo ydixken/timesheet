@@ -15,6 +15,13 @@
       "when": 1741305600000,
       "tag": "0001_add_show_amount",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1741564800000,
+      "tag": "0002_settings",
+      "breakpoints": true
     }
   ]
 }

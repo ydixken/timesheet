@@ -16,6 +16,7 @@ import taskRoutes from './routes/tasks.js'
 import dashboardRoutes from './routes/dashboard.js'
 import reportRoutes from './routes/reports.js'
 import pdfRoutes from './routes/pdf.js'
+import settingsRoutes from './routes/settings.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 await migrate(db, { migrationsFolder: resolve(__dirname, './db/migrations') })
@@ -43,6 +44,7 @@ await app.register(taskRoutes, { prefix: '/api' })
 await app.register(dashboardRoutes, { prefix: '/api' })
 await app.register(reportRoutes, { prefix: '/api' })
 await app.register(pdfRoutes, { prefix: '/api' })
+await app.register(settingsRoutes, { prefix: '/api' })
 
 const shutdown = async (signal: string) => {
   app.log.info(`Received ${signal}, shutting down gracefully`)

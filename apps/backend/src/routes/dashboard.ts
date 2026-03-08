@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify'
 import { eq, and, gte, lte, sql } from 'drizzle-orm'
 import { db } from '../db/index.js'
-import { timeEntries, projects, clients } from '../db/schema.js'
+import { timeEntries, projects, clients, settings } from '../db/schema.js'
 
 function getDateRange(range: string, start?: string, end?: string): { start: string; end: string } {
   const today = new Date()
@@ -51,6 +51,28 @@ function fmtDate(d: Date): string {
 
 function pad(n: number): string {
   return n.toString().padStart(2, '0')
+}
+
+function countWorkingDays(year: number, month: number, upToDay?: number): number {
+  const daysInMonth = new Date(year, month, 0).getDate()
+  const limit = upToDay !== undefined ? Math.min(upToDay, daysInMonth) : daysInMonth
+  let count = 0
+  for (let d = 1; d <= limit; d++) {
+    const dow = new Date(year, month - 1, d).getDay()
+    if (dow >= 1 && dow <= 5) count++
+  }
+  return count
+}
+
+function countWorkingDaysBetween(start: Date, end: Date): number {
+  let count = 0
+  const cur = new Date(start)
+  while (cur <= end) {
+    const dow = cur.getDay()
+    if (dow >= 1 && dow <= 5) count++
+    cur.setDate(cur.getDate() + 1)
+  }
+  return count
 }
 
 export default async function dashboardRoutes(fastify: FastifyInstance) {
@@ -229,6 +251,55 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
       }
     })
 
+    // Revenue forecast — adapts to the selected range
+    const isPastPeriod = range === 'last_week' || range === 'last_month'
+
+    // Compute revenue for the selected period (from the already-fetched rows)
+    const periodRevenue = rows
+      .filter((r) => r.billable)
+      .reduce((s, r) => {
+        const rate = r.hourlyRate ? parseFloat(r.hourlyRate) : 0
+        return s + (r.durationMin / 60) * rate
+      }, 0)
+
+    // Working days for the selected period
+    const drStart = new Date(dr.start + 'T12:00:00')
+    const drEnd = new Date(dr.end + 'T12:00:00')
+    const periodWorkingDays = countWorkingDaysBetween(drStart, drEnd)
+
+    let workingDaysTotal: number
+    let workingDaysElapsed: number
+    let avgDailyRevenue: number
+    let forecastedMonthEnd: number
+    let periodLabel: string
+
+    if (isPastPeriod) {
+      // Past period: show actuals, no projection
+      workingDaysTotal = periodWorkingDays
+      workingDaysElapsed = periodWorkingDays
+      avgDailyRevenue = periodWorkingDays > 0 ? periodRevenue / periodWorkingDays : 0
+      forecastedMonthEnd = periodRevenue // actual total, no forecast
+      periodLabel = range === 'last_week' ? 'Last Week' : 'Last Month'
+    } else {
+      // Current period: project forward
+      workingDaysTotal = countWorkingDays(currentYear, currentMonth)
+      workingDaysElapsed = countWorkingDays(currentYear, currentMonth, now.getDate())
+      avgDailyRevenue = workingDaysElapsed > 0 ? earnedThisMonth / workingDaysElapsed : 0
+      forecastedMonthEnd = Math.round(avgDailyRevenue * workingDaysTotal * 100) / 100
+      periodLabel = range === 'this_week' ? 'This Week' : 'This Month'
+    }
+
+    const [targetRow] = await db
+      .select()
+      .from(settings)
+      .where(eq(settings.key, 'monthlyRevenueTarget'))
+      .limit(1)
+
+    const monthlyTarget = targetRow ? parseFloat(targetRow.value) : null
+    const targetProgress = monthlyTarget !== null && monthlyTarget > 0
+      ? Math.round((earnedThisMonth / monthlyTarget) * 100 * 100) / 100
+      : null
+
     return {
       totalMinutes,
       topProject,
@@ -240,6 +311,17 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
         earnedThisMonth: Math.round(earnedThisMonth * 100) / 100,
         earnedYTD: Math.round(earnedYTD * 100) / 100,
         projects: revenueProjects,
+        forecast: {
+          workingDaysTotal,
+          workingDaysElapsed,
+          avgDailyRevenue: Math.round(avgDailyRevenue * 100) / 100,
+          forecastedMonthEnd: Math.round(forecastedMonthEnd * 100) / 100,
+          monthlyTarget,
+          targetProgress,
+          periodRevenue: Math.round(periodRevenue * 100) / 100,
+          periodLabel,
+          isPastPeriod,
+        },
       },
     }
   })

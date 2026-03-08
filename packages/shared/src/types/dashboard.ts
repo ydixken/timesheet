@@ -12,6 +12,18 @@ export interface ProjectSplit {
   percentage: number
 }
 
+export interface RevenueForecast {
+  workingDaysTotal: number
+  workingDaysElapsed: number
+  avgDailyRevenue: number
+  forecastedMonthEnd: number
+  monthlyTarget: number | null
+  targetProgress: number | null
+  periodRevenue: number
+  periodLabel: string
+  isPastPeriod: boolean
+}
+
 export interface RevenueSummary {
   earnedThisMonth: number
   earnedYTD: number
@@ -23,6 +35,7 @@ export interface RevenueSummary {
     trackedHours: number
     remainingHours: number | null
   }[]
+  forecast: RevenueForecast
 }
 
 export interface DashboardResponse {

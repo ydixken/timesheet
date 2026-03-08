@@ -44,6 +44,8 @@ export function Dashboard() {
   const [data, setData] = useState<DashboardResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [editingTarget, setEditingTarget] = useState(false)
+  const [targetInput, setTargetInput] = useState('')
 
   const fetchDashboard = useCallback(async (r: Range) => {
     setLoading(true)
@@ -61,6 +63,18 @@ export function Dashboard() {
   useEffect(() => {
     fetchDashboard(range)
   }, [range, fetchDashboard])
+
+  const handleTargetSave = useCallback(async () => {
+    const num = parseFloat(targetInput)
+    if (isNaN(num) || num < 0) return
+    try {
+      await api.put('/settings/monthlyRevenueTarget', { value: String(num) })
+      setEditingTarget(false)
+      fetchDashboard(range)
+    } catch {
+      // keep editing state open so user can retry
+    }
+  }, [targetInput, range, fetchDashboard])
 
   // Build stacked bar chart data
   const allProjectNames = data
@@ -149,6 +163,140 @@ export function Dashboard() {
               sub={data.topClient ? `${formatDecimalHours(data.topClient.minutes)}h` : undefined}
             />
           </div>
+
+          {/* Revenue Forecast / Period Summary */}
+          {data.revenue.forecast && (() => {
+            const f = data.revenue.forecast
+            return (
+              <div className="bg-terminal-bg-light border border-terminal-border rounded-lg p-4 mb-8">
+                <h2 className="text-terminal-text-bright font-mono text-sm font-bold mb-4">
+                  {f.isPastPeriod ? `${f.periodLabel} Summary` : 'Monthly Forecast'}
+                </h2>
+
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {/* Column 1 — Forecast or Period Total */}
+                  <div>
+                    <p className="text-terminal-text font-mono text-xs mb-1">
+                      {f.isPastPeriod ? 'Period Total' : 'Forecast (end of month)'}
+                    </p>
+                    <p className="text-terminal-green font-mono text-2xl font-bold">
+                      {formatEuro(f.isPastPeriod ? f.periodRevenue : f.forecastedMonthEnd)}
+                    </p>
+                    <p className="text-terminal-text font-mono text-xs mt-1">
+                      {formatEuro(f.avgDailyRevenue)}/working day
+                      {' \u00b7 '}
+                      {f.isPastPeriod
+                        ? `${f.workingDaysTotal} working days`
+                        : `${f.workingDaysElapsed}/${f.workingDaysTotal} days elapsed`}
+                    </p>
+                  </div>
+
+                  {/* Column 2 — Period Revenue or Earned This Month */}
+                  <div>
+                    <p className="text-terminal-text font-mono text-xs mb-1">
+                      {f.isPastPeriod ? 'Avg Daily Revenue' : 'Earned This Month'}
+                    </p>
+                    <p className="text-terminal-blue font-mono text-2xl font-bold">
+                      {f.isPastPeriod
+                        ? formatEuro(f.avgDailyRevenue)
+                        : formatEuro(data.revenue.earnedThisMonth)}
+                    </p>
+                    {f.isPastPeriod && (
+                      <p className="text-terminal-text font-mono text-xs mt-1">
+                        across {f.workingDaysTotal} working days
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Column 3 — Monthly Target (only for current periods) */}
+                  <div>
+                    <p className="text-terminal-text font-mono text-xs mb-1">
+                      Monthly Target
+                    </p>
+                    {f.isPastPeriod ? (
+                      <p className="text-terminal-text font-mono text-2xl font-bold">
+                        {f.monthlyTarget != null ? formatEuro(f.monthlyTarget) : '--'}
+                      </p>
+                    ) : editingTarget ? (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault()
+                          handleTargetSave()
+                        }}
+                        className="flex items-center gap-2"
+                      >
+                        <input
+                          type="number"
+                          autoFocus
+                          step={100}
+                          min={0}
+                          value={targetInput}
+                          onChange={(e) => setTargetInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Escape') setEditingTarget(false)
+                          }}
+                          onBlur={() => setEditingTarget(false)}
+                          className="w-32 bg-terminal-bg border border-terminal-border rounded px-2 py-1 text-terminal-text-bright font-mono text-lg focus:border-terminal-green focus:outline-none"
+                        />
+                        <span className="text-terminal-text font-mono text-sm">EUR</span>
+                      </form>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTargetInput(
+                            f.monthlyTarget != null ? String(f.monthlyTarget) : ''
+                          )
+                          setEditingTarget(true)
+                        }}
+                        className="text-terminal-text-bright font-mono text-2xl font-bold hover:text-terminal-green transition-colors cursor-pointer"
+                      >
+                        {f.monthlyTarget != null
+                          ? formatEuro(f.monthlyTarget)
+                          : '[set target]'}
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Progress bar — only for current periods with a target set */}
+                {!f.isPastPeriod &&
+                  f.monthlyTarget != null &&
+                  f.targetProgress != null && (() => {
+                    let colorText = 'text-terminal-danger'
+                    let colorBg = 'bg-terminal-danger'
+                    let paceLabel = 'Behind Target'
+
+                    if (f.forecastedMonthEnd >= f.monthlyTarget) {
+                      colorText = 'text-terminal-green'
+                      colorBg = 'bg-terminal-green'
+                      paceLabel = 'On Track'
+                    } else if (f.targetProgress >= 80) {
+                      colorText = 'text-yellow-400'
+                      colorBg = 'bg-yellow-400'
+                      paceLabel = 'Slightly Behind'
+                    }
+
+                    return (
+                      <div className="mt-4">
+                        <div className="flex justify-between mb-1 font-mono text-xs">
+                          <span className={colorText}>
+                            {f.targetProgress.toFixed(1)}% of target
+                          </span>
+                          <span className={colorText}>{paceLabel}</span>
+                        </div>
+                        <div className="w-full h-2 bg-terminal-surface rounded-full overflow-hidden">
+                          <div
+                            className={`h-full ${colorBg} rounded-full transition-all duration-300`}
+                            style={{ width: `${Math.min(f.targetProgress, 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )
+                  })()}
+              </div>
+            )
+          })()}
 
           {/* Charts row */}
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">

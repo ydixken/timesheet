@@ -61,3 +61,9 @@ export const pdfExports = pgTable('pdf_exports', {
   filename:  text('filename').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
+
+export const settings = pgTable('settings', {
+  key:       text('key').primaryKey(),
+  value:     text('value').notNull(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
