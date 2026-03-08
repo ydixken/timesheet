@@ -32,9 +32,15 @@ KPI cards for total hours, top project, and top client. A stacked bar chart show
 
 Summary view grouped by project or client with bar charts and distribution breakdowns. Detailed view with sortable columns and date/project filtering. Export everything to CSV.
 
-### PDF Export
+### PDF Timesheet Generation
 
-Generate professional PDF timesheets per client per month. Choose between a classic or terminal theme. The generation streams progress in real-time via SSE, and you can preview or download the result.
+At the end of each month, generate a PDF timesheet for any client with one click. The backend renders it with Puppeteer (headless Chrome), streaming progress logs to the frontend in real-time. You can preview the result in-app or download it directly.
+
+![Generated PDF Timesheet](assets/timesheet_finops-gmbh_2026-02.png)
+
+Each PDF lists daily time entries with hours and descriptions, followed by a summary block with total hours, hourly rate, and the total amount. There's a sign-off section at the bottom for approval signatures.
+
+Two themes are available: the **terminal** theme shown above (matching the app's aesthetic) and a **classic** theme with a clean, traditional layout for clients who prefer something more conventional.
 
 ## Tech Stack
 
