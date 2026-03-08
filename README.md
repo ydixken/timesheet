@@ -1,6 +1,6 @@
 # Timesheet
 
-Self-hosted time tracking for freelancers who want full control over their data. Built to replace Clockify with revenue analytics, per-client PDF exports, and a terminal-inspired UI.
+Self-hosted time tracking for freelancers who want full control over their data. Built to replace a SaaS timesheet with revenue analytics, per-client PDF exports, and a terminal-inspired UI.
 
 ![Dashboard](assets/dashboard.png)
 
