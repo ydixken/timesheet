@@ -30,7 +30,7 @@ async function seedDemoData() {
       },
       {
         name: 'Internal',
-        email: 'yannick@dixken.de',
+        email: 'demo@invalid.com',
       },
     ])
     .returning()
