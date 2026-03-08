@@ -28,6 +28,8 @@ Manage clients with contact details. Create projects with hourly rates, budget e
 
 KPI cards for total hours, top project, and top client. A stacked bar chart shows revenue per day broken down by project. The donut chart shows time distribution. Revenue section tracks earnings this month, year-to-date, and per-project with budget progress bars.
 
+There's also a **revenue forecast** that projects your month-end earnings based on your pace so far. Set a monthly target and you'll get a progress bar that tells you if you're on track, slightly behind, or need to pick up the pace. Switch to "last week" or "last month" and it flips to a period summary with actuals instead of projections.
+
 ### Reports and CSV Export
 
 Summary view grouped by project or client with bar charts and distribution breakdowns. Detailed view with sortable columns and date/project filtering. Export everything to CSV.
@@ -43,6 +45,14 @@ Each PDF lists daily time entries with hours and descriptions, followed by a sum
 Two themes are available: the **terminal** theme shown above (matching the app's aesthetic) and a **classic** theme with a clean, traditional layout for clients who prefer something more conventional.
 
 The billable amount can be hidden per project via the "show amount" setting. This is useful in agency chaining scenarios where you get paid by an intermediate agent but need the end customer to sign off on the hours. The PDF will still list all entries and totals, just without rates or amounts.
+
+### Bulk PDF Export
+
+Need to send timesheets for all your projects at the end of the month? The **export month** button on the projects page generates PDFs for every active project in one go and bundles them into a ZIP file. Pick a month, choose your theme, and it streams progress in real-time so you know exactly what's happening. No more clicking through projects one by one.
+
+### Smart Time Rounding
+
+Most freelancers bill in rounded increments — quarter hours, six-minute blocks (0.1h), you name it. Each project can have its own rounding setting (5, 6, 10, 15, or 30 minutes), and it kicks in when you generate a PDF. The rounding happens per day: each day's total gets rounded to the nearest increment, and the monthly total is the sum of those rounded values. Your raw tracked data stays untouched — the rounding only affects the customer-facing PDF so you always have exact numbers for your own analytics. The customer just sees clean, rounded hours as if that's what you tracked.
 
 ## Tech Stack
 

@@ -8,6 +8,7 @@ interface PdfPreviewModalProps {
   projectName: string
   isOpen: boolean
   onClose: () => void
+  roundingMin?: number | null
 }
 
 const MONTHS = [
@@ -17,7 +18,7 @@ const MONTHS = [
 
 type Phase = 'select' | 'generating' | 'ready' | 'error'
 
-export function PdfPreviewModal({ projectId, projectName, isOpen, onClose }: PdfPreviewModalProps) {
+export function PdfPreviewModal({ projectId, projectName, isOpen, onClose, roundingMin }: PdfPreviewModalProps) {
   const now = new Date()
   const [month, setMonth] = useState(now.getMonth() + 1)
   const [year, setYear] = useState(now.getFullYear())
@@ -228,6 +229,11 @@ export function PdfPreviewModal({ projectId, projectName, isOpen, onClose }: Pdf
                   </button>
                 ))}
               </div>
+              {roundingMin && (
+                <p className="text-terminal-text font-mono text-xs mt-2">
+                  Rounding: {roundingMin === 6 ? '6 min (0.1h)' : `${roundingMin} min`}
+                </p>
+              )}
               <Button variant="filled" onClick={startGeneration}>
                 [generate]
               </Button>

@@ -7,6 +7,7 @@ export interface Project {
   estimatedHours: string | null
   billable: boolean
   showAmount: boolean
+  roundingMin: number | null
   active: boolean
   createdAt: string
   updatedAt: string

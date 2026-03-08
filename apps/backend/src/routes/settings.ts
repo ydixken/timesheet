@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db/index.js'
 import { settings } from '../db/schema.js'
 
-const ALLOWED_KEYS = ['monthlyRevenueTarget'] as const
+const ALLOWED_KEYS = ['monthlyRevenueTarget', 'defaultRoundingMin'] as const
 
 export default async function settingsRoutes(fastify: FastifyInstance) {
   fastify.addHook('preHandler', fastify.authenticate)

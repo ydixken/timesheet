@@ -8,6 +8,7 @@ export const CreateProjectSchema = z.object({
   estimatedHours: z.number().positive().optional().nullable(),
   billable: z.boolean().default(true),
   showAmount: z.boolean().default(true),
+  roundingMin: z.union([z.literal(5), z.literal(6), z.literal(10), z.literal(15), z.literal(30)]).optional().nullable(),
   active: z.boolean().default(true),
 })
 

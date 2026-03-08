@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify'
 import type { PdfTheme } from '@timesheet/shared'
+import { roundMinutes } from '@timesheet/shared'
 import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import { eq, and, gte, lte, inArray } from 'drizzle-orm'
@@ -136,6 +137,7 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
 
     // 5. Build day rows — one per calendar day
     const days: PdfDayRow[] = []
+    let roundedTotalMinutes = 0
     for (let day = 1; day <= lastDay; day++) {
       const date = new Date(yearNum, monthNum - 1, day)
       const dateStr = `${yearNum}-${pad2(monthNum)}-${pad2(day)}`
@@ -144,6 +146,8 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
 
       const dayEntries = entries.filter((e) => e.date === dateStr)
       const totalMin = dayEntries.reduce((sum, e) => sum + e.durationMin, 0)
+      const effectiveMin = project.roundingMin ? roundMinutes(totalMin, project.roundingMin) : totalMin
+      roundedTotalMinutes += effectiveMin
       const descriptions = dayEntries
         .map((e) => e.description)
         .filter(Boolean)
@@ -151,7 +155,7 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
 
       days.push({
         date: `${DAY_NAMES[dayOfWeek]} ${pad2(day)}.${pad2(monthNum)}.`,
-        hours: totalMin > 0 ? formatGermanDecimal(totalMin / 60) : null,
+        hours: effectiveMin > 0 ? formatGermanDecimal(effectiveMin / 60) : null,
         description: descriptions,
         isWeekend,
       })
@@ -159,9 +163,10 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
 
     // 6. Totals
     const totalMinutes = entries.reduce((sum, e) => sum + e.durationMin, 0)
-    const totalHours = formatGermanDecimal(totalMinutes / 60)
+    const totalMinutesForPdf = project.roundingMin ? roundedTotalMinutes : totalMinutes
+    const totalHours = formatGermanDecimal(totalMinutesForPdf / 60)
     const hourlyRate = project.showAmount && project.hourlyRate ? parseFloat(project.hourlyRate) : null
-    const totalAmount = hourlyRate ? hourlyRate * (totalMinutes / 60) : null
+    const totalAmount = hourlyRate ? hourlyRate * (totalMinutesForPdf / 60) : null
 
     // 7. Logos
     const clientLogoUrl = client?.logoPath
@@ -285,6 +290,7 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
 
       log('Building timesheet template...')
       const days: PdfDayRow[] = []
+      let roundedTotalMinutes = 0
       for (let day = 1; day <= lastDay; day++) {
         const date = new Date(yearNum, monthNum - 1, day)
         const dateStr = `${yearNum}-${pad2(monthNum)}-${pad2(day)}`
@@ -292,13 +298,15 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
         const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
         const dayEntries = entries.filter((e) => e.date === dateStr)
         const totalMin = dayEntries.reduce((sum, e) => sum + e.durationMin, 0)
+        const effectiveMin = project.roundingMin ? roundMinutes(totalMin, project.roundingMin) : totalMin
+        roundedTotalMinutes += effectiveMin
         const descriptions = dayEntries
           .map((e) => e.description)
           .filter(Boolean)
           .join(', ')
         days.push({
           date: `${DAY_NAMES[dayOfWeek]} ${pad2(day)}.${pad2(monthNum)}.`,
-          hours: totalMin > 0 ? formatGermanDecimal(totalMin / 60) : null,
+          hours: effectiveMin > 0 ? formatGermanDecimal(effectiveMin / 60) : null,
           description: descriptions,
           isWeekend,
         })
@@ -312,12 +320,13 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
         : null
 
       const totalMinutes = entries.reduce((sum, e) => sum + e.durationMin, 0)
-      const totalHours = formatGermanDecimal(totalMinutes / 60)
+      const totalMinutesForPdf = project.roundingMin ? roundedTotalMinutes : totalMinutes
+      const totalHours = formatGermanDecimal(totalMinutesForPdf / 60)
       const hourlyRate =
         project.showAmount && project.hourlyRate
           ? parseFloat(project.hourlyRate)
           : null
-      const totalAmount = hourlyRate ? hourlyRate * (totalMinutes / 60) : null
+      const totalAmount = hourlyRate ? hourlyRate * (totalMinutesForPdf / 60) : null
 
       log('HTML template ready')
       log('Starting Puppeteer PDF engine...')
@@ -491,6 +500,7 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
 
         // Build day rows
         const days: PdfDayRow[] = []
+        let roundedTotalMinutes = 0
         for (let day = 1; day <= lastDay; day++) {
           const date = new Date(yearNum, monthNum - 1, day)
           const dateStr = `${yearNum}-${pad2(monthNum)}-${pad2(day)}`
@@ -498,13 +508,15 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
           const isWeekend = dayOfWeek === 0 || dayOfWeek === 6
           const dayEntries = entries.filter((e) => e.date === dateStr)
           const totalMin = dayEntries.reduce((sum, e) => sum + e.durationMin, 0)
+          const effectiveMin = project.roundingMin ? roundMinutes(totalMin, project.roundingMin) : totalMin
+          roundedTotalMinutes += effectiveMin
           const descriptions = dayEntries
             .map((e) => e.description)
             .filter(Boolean)
             .join(', ')
           days.push({
             date: `${DAY_NAMES[dayOfWeek]} ${pad2(day)}.${pad2(monthNum)}.`,
-            hours: totalMin > 0 ? formatGermanDecimal(totalMin / 60) : null,
+            hours: effectiveMin > 0 ? formatGermanDecimal(effectiveMin / 60) : null,
             description: descriptions,
             isWeekend,
           })
@@ -515,12 +527,13 @@ export default async function pdfRoutes(fastify: FastifyInstance) {
           : null
 
         const totalMinutes = entries.reduce((sum, e) => sum + e.durationMin, 0)
-        const totalHours = formatGermanDecimal(totalMinutes / 60)
+        const totalMinutesForPdf = project.roundingMin ? roundedTotalMinutes : totalMinutes
+        const totalHours = formatGermanDecimal(totalMinutesForPdf / 60)
         const hourlyRate =
           project.showAmount && project.hourlyRate
             ? parseFloat(project.hourlyRate)
             : null
-        const totalAmount = hourlyRate ? hourlyRate * (totalMinutes / 60) : null
+        const totalAmount = hourlyRate ? hourlyRate * (totalMinutesForPdf / 60) : null
 
         const html = buildPdfHtml({
           freelancerName: 'Yannick Dixken',

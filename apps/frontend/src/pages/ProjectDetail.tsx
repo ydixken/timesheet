@@ -224,6 +224,7 @@ export function ProjectDetail() {
         projectName={project.name}
         isOpen={pdfModalOpen}
         onClose={() => setPdfModalOpen(false)}
+        roundingMin={project.roundingMin}
       />
     </div>
   )
@@ -481,6 +482,7 @@ function EditProjectForm({
   const [estimatedHours, setEstimatedHours] = useState(project.estimatedHours ?? '')
   const [billable, setBillable] = useState(project.billable)
   const [showAmount, setShowAmount] = useState(project.showAmount)
+  const [roundingMin, setRoundingMin] = useState(project.roundingMin ? String(project.roundingMin) : '')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
 
@@ -501,6 +503,7 @@ function EditProjectForm({
         estimatedHours: estimatedHours ? parseFloat(String(estimatedHours)) : null,
         billable,
         showAmount,
+        roundingMin: roundingMin ? (parseInt(roundingMin) as 5 | 6 | 10 | 15 | 30) : null,
       })
     } catch (e) {
       setFormError(e instanceof Error ? e.message : 'Failed to update')
@@ -590,6 +593,21 @@ function EditProjectForm({
                 Show amount in PDF
               </label>
             </div>
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-terminal-text-bright font-mono">Time Rounding</label>
+            <select
+              value={roundingMin}
+              onChange={(e) => setRoundingMin(e.target.value)}
+              className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green focus:ring-1 focus:ring-terminal-green/30"
+            >
+              <option value="">No rounding</option>
+              <option value="5">5 min</option>
+              <option value="6">6 min (0.1h)</option>
+              <option value="10">10 min</option>
+              <option value="15">15 min (quarter hour)</option>
+              <option value="30">30 min (half hour)</option>
+            </select>
           </div>
         </div>
         {formError && <p className="text-terminal-danger font-mono text-sm">{formError}</p>}
