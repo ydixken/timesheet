@@ -42,6 +42,8 @@ Each PDF lists daily time entries with hours and descriptions, followed by a sum
 
 Two themes are available: the **terminal** theme shown above (matching the app's aesthetic) and a **classic** theme with a clean, traditional layout for clients who prefer something more conventional.
 
+The billable amount can be hidden per project via the "show amount" setting. This is useful in agency chaining scenarios where you get paid by an intermediate agent but need the end customer to sign off on the hours. The PDF will still list all entries and totals, just without rates or amounts.
+
 ## Tech Stack
 
 - React 18, Vite, Tailwind CSS v4, Zustand, Recharts
