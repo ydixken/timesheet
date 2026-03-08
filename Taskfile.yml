@@ -125,3 +125,9 @@ tasks:
     dir: apps/backend
     cmds:
       - pnpm tsx src/seed.ts
+
+  seed:demo:
+    desc: "Seed demo data (clients, projects, entries)"
+    dir: apps/backend
+    cmds:
+      - pnpm tsx src/seed-demo.ts

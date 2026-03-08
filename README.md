@@ -1,121 +1,103 @@
 # Timesheet
 
-Self-hosted timesheet application for freelance time tracking, revenue analytics, and PDF export. Built as a replacement for Clockify with a focus on professional invoice-ready PDF timesheets per customer per month.
+Self-hosted time tracking for freelancers who want full control over their data. Built to replace Clockify with revenue analytics, per-client PDF exports, and a terminal-inspired UI.
+
+![Dashboard](assets/dashboard.png)
+
+## Why this exists
+
+I needed a simple timesheet app that lets me track hours, see how much I'm earning per client, and generate professional PDF timesheets at the end of each month. Most tools are either SaaS with monthly fees or missing the invoice workflow. So I built my own.
 
 ## Features
 
-- Time tracker with chronological entry list
-- Weekly timesheet grid view
-- Monthly calendar view
-- Dashboard with analytics and revenue tracking
-- Reports (summary, detailed, CSV export)
-- Projects and clients management with budget tracking
-- Professional PDF timesheet export per customer per month
-- Single-user authentication (JWT)
+### Time Tracking
+
+Log your hours with descriptions, project assignments, and billable/non-billable flags. Switch between duration input and start/end time range. Entries are grouped by day with daily totals.
+
+![Tracker](assets/tracker.png)
+
+There's also a **weekly grid view** (spreadsheet-style, projects as rows, days as columns) and a **monthly calendar** with color-coded project bars per day.
+
+### Projects and Clients
+
+Manage clients with contact details. Create projects with hourly rates, budget estimates, and color coding. Track how much time you've spent, how much is billable, and what's left in the budget.
+
+![Projects](assets/projects.png)
+
+### Dashboard
+
+KPI cards for total hours, top project, and top client. A stacked bar chart shows revenue per day broken down by project. The donut chart shows time distribution. Revenue section tracks earnings this month, year-to-date, and per-project with budget progress bars.
+
+### Reports and CSV Export
+
+Summary view grouped by project or client with bar charts and distribution breakdowns. Detailed view with sortable columns and date/project filtering. Export everything to CSV.
+
+### PDF Export
+
+Generate professional PDF timesheets per client per month. Choose between a classic or terminal theme. The generation streams progress in real-time via SSE, and you can preview or download the result.
 
 ## Tech Stack
 
-- **Frontend:** React 18, Vite, Tailwind CSS v4, Zustand, Recharts
-- **Backend:** Fastify, Drizzle ORM, PostgreSQL 16
-- **Shared:** TypeScript monorepo (pnpm workspaces) with Zod schemas
-- **PDF:** Puppeteer (headless Chrome)
-- **Infrastructure:** Docker, GitLab CI, Kubernetes (Helm)
-
-## Prerequisites
-
-- Node.js >= 20
-- pnpm >= 9
-- Docker & Docker Compose
-- [Task](https://taskfile.dev) (optional but recommended)
+- React 18, Vite, Tailwind CSS v4, Zustand, Recharts
+- Fastify, Drizzle ORM, PostgreSQL 16
+- Shared TypeScript types and Zod schemas (pnpm monorepo)
+- Puppeteer for PDF generation
+- Docker multi-stage builds, GitLab CI, Helm chart for Kubernetes
+- OIDC or local JWT authentication
 
 ## Getting Started
 
-### 1. Clone and install
+You need Node.js 20+, pnpm 9+, Docker, and optionally [Task](https://taskfile.dev).
 
 ```sh
+# Clone and install
 git clone <repo-url> timesheet
 cd timesheet
 pnpm install
-```
 
-### 2. Start the database
-
-```sh
-task db:up
-# or without Task:
-docker compose up -d db
-```
-
-### 3. Build the shared package
-
-```sh
-task shared:build
-# or: pnpm --filter @timesheet/shared build
-```
-
-### 4. Generate and run migrations
-
-```sh
-task db:generate
-task db:migrate
-```
-
-### 5. Seed the admin user
-
-```sh
+# Copy environment config
 cp .env.example .env
-# Edit .env — set ADMIN_USER and ADMIN_PASS
+
+# Start Postgres, run migrations, seed the admin user
+task db:up
+task shared:build
+task db:migrate
 task seed
-```
 
-### 6. Start development servers
-
-In separate terminals:
-
-```sh
+# Start dev servers (in separate terminals)
 task backend:dev   # http://localhost:3000
 task frontend:dev  # http://localhost:5173
 ```
 
-Visit [http://localhost:5173](http://localhost:5173).
-
 ## Available Tasks
 
-Run `task --list` to see all targets. Key tasks:
+Run `task --list` to see everything. Here are the ones you'll use most:
 
-| Task | Description |
+| Task | What it does |
 |------|-------------|
-| `task dev` | Start DB, then instructions for backend + frontend |
 | `task db:up` | Start PostgreSQL container |
-| `task db:down` | Stop PostgreSQL container |
-| `task db:reset` | Wipe DB volume and re-migrate |
+| `task db:reset` | Wipe DB, re-create volume, run migrations |
 | `task db:migrate` | Run pending Drizzle migrations |
-| `task db:generate` | Generate new migration from schema changes |
+| `task db:generate` | Generate migration from schema changes |
 | `task db:studio` | Open Drizzle Studio |
-| `task backend:dev` | Run backend with tsx watch |
-| `task backend:build` | Compile backend TypeScript |
+| `task backend:dev` | Backend with hot reload |
+| `task frontend:dev` | Vite dev server |
 | `task backend:test` | Run backend tests |
-| `task backend:lint` | Lint + type-check backend |
-| `task frontend:dev` | Start Vite dev server |
-| `task frontend:build` | Build production frontend |
 | `task frontend:test` | Run frontend tests |
-| `task frontend:lint` | Lint + type-check frontend |
-| `task shared:build` | Build shared package |
-| `task docker:build` | Build all Docker images locally |
-| `task docker:push` | Tag and push images (set VERSION and REGISTRY) |
-| `task ci:test` | Full test suite (mirrors CI) |
 | `task seed` | Seed admin user |
+| `task seed:demo` | Seed demo data (clients, projects, entries) |
+| `task docker:build` | Build Docker images locally |
+| `task ci:test` | Full lint + test suite (mirrors CI) |
 
 ## Project Structure
 
 ```
 timesheet/
-  packages/shared/    — Zod schemas and TypeScript types (single source of truth)
-  apps/backend/       — Fastify API server
-  apps/frontend/      — React SPA (Vite)
-  nginx/              — Nginx reverse proxy config (docker compose)
-  helm/               — Kubernetes Helm chart (placeholder)
-  tasks/              — Task tracking and lessons
+  packages/shared/    Zod schemas and TypeScript types
+  apps/backend/       Fastify API, Drizzle ORM, Puppeteer PDF
+  apps/frontend/      React SPA (Vite + Tailwind)
+  nginx/              Reverse proxy config for Docker Compose
+  helm/               Kubernetes Helm chart
 ```
 
 ## Environment Variables
@@ -123,46 +105,31 @@ timesheet/
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `DATABASE_URL` | `postgres://timesheet:timesheet@localhost:5432/timesheet` | PostgreSQL connection string |
-| `JWT_SECRET` | — | Secret for signing JWT tokens (required) |
-| `JWT_EXPIRY_HOURS` | `24` | JWT token expiry in hours |
-| `ADMIN_USER` | `yannick` | Username for seed script |
-| `ADMIN_PASS` | — | Password for seed script |
-| `UPLOADS_DIR` | `./uploads` | Directory for file uploads |
-| `MAX_UPLOAD_SIZE_MB` | `5` | Max upload file size in MB |
-| `PORT` | `3000` | Backend server port |
-| `NODE_ENV` | `development` | Node environment |
+| `AUTH_MODE` | `none` | `none` for local dev, `oidc` for production |
+| `JWT_SECRET` | (required) | Secret for signing JWT tokens |
+| `JWT_EXPIRY_HOURS` | `24` | Token expiry |
+| `ADMIN_USER` | `admin` | Username for seed script |
+| `ADMIN_PASS` | `change-me` | Password for seed script |
+| `UPLOADS_DIR` | `./uploads` | Client logo storage |
+| `PORT` | `3000` | Backend port |
 | `CORS_ORIGIN` | `http://localhost:5173` | Allowed CORS origin |
-| `PUPPETEER_NO_SANDBOX` | `false` | Disable Chromium sandbox (set `true` in containers) |
+| `PUPPETEER_NO_SANDBOX` | `false` | Set `true` in containers |
 
-## Docker
+See `.env.example` for the full list including OIDC settings.
 
-Build and run the full stack with Docker Compose:
+## Docker and Deployment
 
 ```sh
-# Build images
+# Build and run the full stack locally
 task docker:build
-# or: docker build -t timesheet-backend:local -f apps/backend/Dockerfile .
-#     docker build -t timesheet-frontend:local -f apps/frontend/Dockerfile .
-
-# Run everything (DB + backend + frontend + nginx)
 docker compose up -d
-
 # Access via http://localhost
 ```
 
-The compose stack includes PostgreSQL, backend, frontend, and an nginx reverse proxy that routes `/api` to the backend and everything else to the frontend.
+The Compose stack runs Postgres, backend, frontend, and an nginx proxy that routes `/api` to the backend.
 
-## Deployment
-
-- Docker images are built by GitLab CI on pushes to `main`
-- Images are pushed to the GitLab built-in container registry
-- Helm chart in `helm/` for Kubernetes deployment (see `helm/README.md`)
-- Target domain: `timesheet.dixken.de`
-
-## PDF Export
-
-The backend uses Puppeteer to render professional PDF timesheets. Each PDF covers one customer for one month, showing daily time entries, totals, and rates. PDFs are generated on-demand via the API and can be downloaded from the reports view in the frontend.
+For production, GitLab CI builds and pushes images to the container registry on every push to `main`. The Helm chart in `helm/` handles Kubernetes deployment. See `helm/README.md` for the values contract and resource recommendations.
 
 ## License
 
-Private — All rights reserved.
+Private. All rights reserved.

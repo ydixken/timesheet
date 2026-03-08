@@ -303,9 +303,14 @@ export function Reports() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
             {/* Bar chart */}
             <div className="lg:col-span-2 bg-terminal-bg-light border border-terminal-border rounded p-4">
-              <h3 className="text-xs text-terminal-text font-mono mb-3 uppercase tracking-wider">
-                Hours by {groupBy}
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-xs text-terminal-text font-mono uppercase tracking-wider">
+                  Hours by {groupBy}
+                </h3>
+                <span className="text-[10px] text-terminal-text font-mono">
+                  faded = total &middot; solid = billable
+                </span>
+              </div>
               <ResponsiveContainer width="100%" height={260}>
                 <BarChart data={barData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3e" />

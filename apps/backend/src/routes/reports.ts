@@ -38,10 +38,11 @@ export default async function reportRoutes(fastify: FastifyInstance) {
         .where(dateConditions)
         .groupBy(clients.id, clients.name)
 
-      const groups = rows.map(r => ({
+      const CLIENT_COLORS = ['#39ff14', '#00d9ff', '#ff6b6b', '#ffd93d', '#c084fc', '#ff8c42', '#4ade80', '#f472b6']
+      const groups = rows.map((r, i) => ({
         id: r.id,
         name: r.name,
-        color: '#888888',
+        color: CLIENT_COLORS[i % CLIENT_COLORS.length],
         totalMinutes: Number(r.totalMinutes),
         billableMinutes: Number(r.billableMinutes),
         entries: Number(r.entries),

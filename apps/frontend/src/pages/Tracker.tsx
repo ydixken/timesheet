@@ -212,15 +212,14 @@ export function Tracker() {
           >
             {timeMode === 'duration' ? '[range]' : '[dur]'}
           </button>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={billable}
-              onChange={(e) => setBillable(e.target.checked)}
-              className="accent-terminal-green"
-            />
-            <span className="text-xs font-mono text-terminal-text">$</span>
-          </label>
+          <button
+            type="button"
+            onClick={() => setBillable(!billable)}
+            className={`text-xs font-mono px-2 py-2 transition-colors cursor-pointer ${billable ? 'text-terminal-green' : 'text-terminal-danger'}`}
+            title={billable ? 'Billable (click to toggle)' : 'Non-billable (click to toggle)'}
+          >
+            {billable ? '[billable]' : '[not billable]'}
+          </button>
           <Button variant="filled" onClick={handleAdd} className="px-4 py-2">
             + add
           </Button>
@@ -391,7 +390,7 @@ function EntryRow({
           {formatDuration(entry.durationMin)}
         </span>
         {!entry.billable && (
-          <span className="text-xs text-terminal-text" title="Non-billable">
+          <span className="text-xs text-terminal-danger font-mono" title="Non-billable">
             nb
           </span>
         )}
@@ -554,15 +553,14 @@ function EditRow({
         >
           {mode === 'duration' ? '[range]' : '[dur]'}
         </button>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={bill}
-            onChange={(e) => setBill(e.target.checked)}
-            className="accent-terminal-green"
-          />
-          <span className="text-xs font-mono text-terminal-text">$</span>
-        </label>
+        <button
+          type="button"
+          onClick={() => setBill(!bill)}
+          className={`text-xs font-mono px-2 py-1.5 transition-colors cursor-pointer ${bill ? 'text-terminal-green' : 'text-terminal-danger'}`}
+          title={bill ? 'Billable (click to toggle)' : 'Non-billable (click to toggle)'}
+        >
+          {bill ? '[billable]' : '[not billable]'}
+        </button>
         <Button variant="filled" onClick={handleSave} disabled={saving} className="px-3 py-1.5 text-xs">
           save
         </Button>
