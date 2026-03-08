@@ -2,10 +2,10 @@ import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../store/auth'
 
 const navItems = [
+  { to: '/', label: 'dashboard' },
   { to: '/tracker', label: 'tracker' },
   { to: '/timesheet', label: 'timesheet' },
   { to: '/calendar', label: 'calendar' },
-  { to: '/', label: 'dashboard' },
   { to: '/reports', label: 'reports' },
   { to: '/projects', label: 'projects' },
   { to: '/clients', label: 'clients' },

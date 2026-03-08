@@ -61,7 +61,6 @@ You need Node.js 20+, pnpm 9+, Docker, and optionally [Task](https://taskfile.de
 # Clone and install
 git clone https://github.com/ydixken/timesheet.git
 cd timesheet
-cd timesheet
 pnpm install
 
 # Copy environment config
