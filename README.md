@@ -16,7 +16,13 @@ Log your hours with descriptions, project assignments, and billable/non-billable
 
 ![Tracker](assets/tracker.png)
 
-There's also a **weekly grid view** (spreadsheet-style, projects as rows, days as columns) and a **monthly calendar** with color-coded project bars per day.
+There's also a **weekly grid view** (spreadsheet-style, projects as rows, days as columns) for quick bulk entry.
+
+### Calendar
+
+Three views: week (default), day, and month. The week and day views show a vertical time grid where entries appear as colored blocks positioned by their start/end times. Overlapping entries stack side-by-side. Entries without a start time appear in an "unscheduled" row above the grid. Click any entry block for a detail popover. The month view shows a traditional calendar with hours per day and project color bars.
+
+![Calendar](assets/calendar.png)
 
 ### Projects and Clients
 

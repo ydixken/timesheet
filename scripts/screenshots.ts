@@ -44,13 +44,8 @@ async function takeScreenshots() {
   await page.goto(`${BASE_URL}/timesheet`, { waitUntil: 'networkidle0' })
   await screenshot('timesheet')
 
-  // 4. Calendar — go back to February for a full month of data
+  // 4. Calendar — week view (default) showing current week with time grid
   await page.goto(`${BASE_URL}/calendar`, { waitUntil: 'networkidle0' })
-  await page.evaluate(() => {
-    const btn = [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === '\u25C0') as HTMLButtonElement
-    btn?.click()
-  })
-  await sleep(1500)
   await screenshot('calendar')
 
   // 5. Reports — summary tab (default). Set date range via JS to cover all data.
