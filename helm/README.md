@@ -19,7 +19,7 @@ backend:
     UPLOADS_DIR: /uploads
     MAX_UPLOAD_SIZE_MB: "5"
     PUPPETEER_NO_SANDBOX: "true"
-    CORS_ORIGIN: https://timesheet.dixken.de
+    CORS_ORIGIN: https://timesheet.fqdn.de
   resources:
     requests:
       cpu: 100m
@@ -51,7 +51,7 @@ frontend:
 ingress:
   enabled: true
   className: nginx
-  host: timesheet.dixken.de
+  host: timesheet.fqdn.de
   tls:
     enabled: true
     secretName: timesheet-tls
