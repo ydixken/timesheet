@@ -64,7 +64,7 @@ export function InlineEditableText({ value, onSave, placeholder, className = '' 
         onMouseDown={(e) => e.stopPropagation()}
         draggable={false}
         disabled={saving}
-        className={`bg-transparent text-sm text-terminal-text-bright font-mono border-b border-b-terminal-green/50 outline-none py-0 px-0 ${className}`}
+        className={`bg-transparent text-sm text-terminal-text-bright font-mono border-b border-b-terminal-green/50 outline-none py-0 px-0 w-full ${className}`}
       />
     )
   }

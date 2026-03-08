@@ -34,7 +34,7 @@ export const useEntries = create<EntriesState>((set, get) => ({
   },
   update: async (id, data) => {
     const updated = await api.put<EntryWithProject>(`/entries/${id}`, data)
-    set({ entries: get().entries.map((e) => (e.id === id ? updated : e)) })
+    set({ entries: get().entries.map((e) => (e.id === id ? { ...e, ...updated } : e)) })
   },
   remove: async (id) => {
     await api.del(`/entries/${id}`)

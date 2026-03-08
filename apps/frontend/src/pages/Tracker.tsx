@@ -375,7 +375,8 @@ function EntryRow({
         e.dataTransfer.setData('text/plain', entry.id)
         e.dataTransfer.effectAllowed = 'move'
       }}
-      className="touch-safe group grid grid-cols-[auto_1fr_30rem_auto] items-center gap-x-3 bg-terminal-bg-light rounded px-4 py-3 border border-transparent hover:border-l-2 hover:border-l-terminal-green transition-all"
+      style={{ gridTemplateColumns: 'auto 1fr minmax(0, 20rem) auto' }}
+      className={`touch-safe group grid items-center gap-x-3 rounded px-4 py-3 border border-transparent hover:border-l-2 hover:border-l-terminal-green transition-all ${entry.billable ? 'bg-terminal-bg-light' : 'bg-terminal-bg-light/50 opacity-70'}`}
     >
       <div className="cursor-grab active:cursor-grabbing text-terminal-border group-hover:text-terminal-text transition-colors" title="Drag to move">
         <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
@@ -394,7 +395,7 @@ function EntryRow({
           placeholder="no description"
         />
       </div>
-      <div className="whitespace-nowrap truncate">
+      <div className="whitespace-nowrap truncate border-l border-terminal-border pl-3">
         {entry.project && (
           <ProjectBadge
             name={entry.project.name}
@@ -403,24 +404,37 @@ function EntryRow({
           />
         )}
       </div>
-      <div className="flex items-center gap-4">
-        <input
-          type="date"
-          value={entry.date}
-          onChange={(e) => { if (e.target.value && e.target.value !== entry.date) onDateChange(e.target.value) }}
-          className="bg-transparent border-none text-xs font-mono text-terminal-text cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 outline-none"
-          title="Change date"
-        />
+      <div className="relative flex items-center justify-end gap-3 border-l border-terminal-border pl-3">
         <span className="text-xs font-mono text-terminal-text whitespace-nowrap w-[13ch] text-right">
           {timeRange || ''}
         </span>
-        <span className="text-sm font-mono text-terminal-text-bright font-medium whitespace-nowrap w-[6ch] text-right">
+        <span className="border-l border-terminal-border pl-3 text-sm font-mono text-terminal-text-bright font-medium whitespace-nowrap w-[6ch] text-right">
           {formatDuration(entry.durationMin)}
         </span>
-        <span className="text-xs text-terminal-danger font-mono w-[2ch]" title={!entry.billable ? 'Non-billable' : undefined}>
-          {!entry.billable ? 'nb' : ''}
-        </span>
-        <div className={`flex items-center gap-1 transition-opacity ${isConfirmingDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+        <div className={`absolute right-0 top-1/2 -translate-y-1/2 flex items-center gap-1 bg-terminal-bg-light pl-2 transition-opacity ${isConfirmingDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+          <button
+            type="button"
+            onClick={() => {
+              const input = document.getElementById(`date-${entry.id}`) as HTMLInputElement
+              input?.showPicker()
+            }}
+            className="text-terminal-text hover:text-terminal-blue cursor-pointer p-1"
+            title="Change date"
+          >
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+              <line x1="16" y1="2" x2="16" y2="6" />
+              <line x1="8" y1="2" x2="8" y2="6" />
+              <line x1="3" y1="10" x2="21" y2="10" />
+            </svg>
+          </button>
+          <input
+            id={`date-${entry.id}`}
+            type="date"
+            value={entry.date}
+            onChange={(e) => { if (e.target.value && e.target.value !== entry.date) onDateChange(e.target.value) }}
+            className="absolute opacity-0 pointer-events-none w-0 h-0"
+          />
           <button
             onClick={onEdit}
             className="text-terminal-text hover:text-terminal-blue cursor-pointer p-1"
@@ -482,8 +496,8 @@ function EditRow({
   const [durInput, setDurInput] = useState(
     entry.startTime && entry.endTime ? '' : String(entry.durationMin / 60),
   )
-  const [st, setSt] = useState(entry.startTime || '')
-  const [et, setEt] = useState(entry.endTime || '')
+  const [st, setSt] = useState(entry.startTime?.slice(0, 5) || '')
+  const [et, setEt] = useState(entry.endTime?.slice(0, 5) || '')
   const [mode, setMode] = useState<'duration' | 'range'>(
     entry.startTime && entry.endTime ? 'range' : 'duration',
   )
