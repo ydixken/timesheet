@@ -329,7 +329,7 @@ function buildClassicPdfHtml(data: PdfTemplateData): string {
   <div class="header-left">
     <div>
       <span class="app-logo"><span class="tilde">~</span>/timesheet_</span>
-      <span class="app-repo">https://gitlab.com/cluster.fail/timesheet</span>
+      <span class="app-repo">https://github.com/ydixken/timesheet</span>
     </div>
     ${freelancerLogo}
   </div>
@@ -699,7 +699,7 @@ function buildTerminalPdfHtml(data: PdfTemplateData): string {
 <div class="t-header">
   <div>
     <span class="t-app-logo"><span class="t-tilde">~</span>/timesheet_</span>
-    <span class="t-app-repo">// gitlab.com/cluster.fail/timesheet</span>
+    <span class="t-app-repo">// github.com/ydixken/timesheet</span>
   </div>
   <div>${clientLogo}</div>
 </div>

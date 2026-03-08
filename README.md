@@ -59,7 +59,8 @@ You need Node.js 20+, pnpm 9+, Docker, and optionally [Task](https://taskfile.de
 
 ```sh
 # Clone and install
-git clone <repo-url> timesheet
+git clone https://github.com/ydixken/timesheet.git
+cd timesheet
 cd timesheet
 pnpm install
 
