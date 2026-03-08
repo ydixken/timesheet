@@ -11,6 +11,7 @@ import { Projects } from './pages/Projects'
 import { ProjectDetail } from './pages/ProjectDetail'
 import { Clients } from './pages/Clients'
 import { CommandPalette } from './components/CommandPalette'
+import { BudgetToast } from './components/BudgetToast'
 
 function OidcCallback() {
   const initialize = useAuthStore((s) => s.initialize)
@@ -60,6 +61,7 @@ function ProtectedRoute() {
         </main>
       </div>
       <CommandPalette />
+      <BudgetToast />
     </>
   )
 }

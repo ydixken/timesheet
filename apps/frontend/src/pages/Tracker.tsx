@@ -15,6 +15,7 @@ import {
   formatDateHeading,
   groupEntriesByDate,
 } from '../lib/time'
+import { useBudgetAlerts } from '../hooks/useBudgetAlerts'
 
 function todayStr(): string {
   return new Date().toISOString().split('T')[0]
@@ -30,6 +31,7 @@ function computeDurationFromTimes(start: string, end: string): number | null {
 export function Tracker() {
   const { entries, loading, fetch: fetchEntries, create, update, remove } = useEntries()
   const { projects, fetch: fetchProjects } = useProjects()
+  const checkBudget = useBudgetAlerts((s) => s.checkBudget)
 
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
@@ -123,6 +125,7 @@ export function Tracker() {
 
     try {
       await create(data)
+      checkBudget(projectId)
       setDescription('')
       setDurationInput('')
       setStartTime('')
@@ -150,6 +153,7 @@ export function Tracker() {
     const entry = entries.find((en) => en.id === entryId)
     if (!entry || entry.date === targetDate) return
     await update(entryId, { date: targetDate })
+    checkBudget(entry.projectId)
     fetchCurrentMonth()
   }
 
@@ -303,6 +307,7 @@ export function Tracker() {
                         projects={projects}
                         onSave={async (data) => {
                           await update(entry.id, data)
+                          checkBudget(entry.projectId)
                           setEditingId(null)
                           fetchCurrentMonth()
                         }}

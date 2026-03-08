@@ -6,6 +6,7 @@ import { parseQuickEntry, matchProject } from '@timesheet/shared'
 import { useProjects } from '../hooks/useProjects'
 import { useClients } from '../hooks/useClients'
 import { useEntries } from '../hooks/useEntries'
+import { useBudgetAlerts } from '../hooks/useBudgetAlerts'
 
 export const useCommandPalette = create<{ open: boolean; toggle: () => void }>((set) => ({
   open: false,
@@ -43,6 +44,7 @@ export function CommandPalette() {
   const clients = useClients((s) => s.clients)
   const fetchClients = useClients((s) => s.fetch)
 
+  const checkBudget = useBudgetAlerts((s) => s.checkBudget)
   const activeProjects = projects.filter((p) => p.active)
 
   // Keyboard listener for Cmd+K / Ctrl+K
@@ -93,6 +95,7 @@ export function CommandPalette() {
         durationMin: parsed.durationMin,
         billable: matchedProject.billable,
       })
+      checkBudget(matchedProject.id)
       setOpen(false)
       setSuccessToast(`${formatDuration(parsed.durationMin)} added to ${matchedProject.name}`)
       setTimeout(() => setSuccessToast(null), 3000)

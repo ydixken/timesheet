@@ -14,6 +14,7 @@ import {
   Legend,
 } from 'recharts'
 import type { DashboardResponse } from '@timesheet/shared'
+import { computeBudgetStatus, budgetLevelColors } from '@timesheet/shared'
 import { api } from '../api/client'
 import { formatDecimalHours } from '../lib/time'
 
@@ -437,15 +438,21 @@ export function Dashboard() {
                 <ul className="space-y-3">
                   {data.revenue.projects.map((p) => {
                     const pct = revenueMax > 0 ? (p.earned / revenueMax) * 100 : 0
+                    const budgetStatus = p.budgetHours !== null
+                      ? computeBudgetStatus(String(p.budgetHours), Math.round(p.trackedHours * 60))
+                      : null
+                    const colors = budgetStatus
+                      ? budgetLevelColors(budgetStatus.level)
+                      : { bar: 'bg-terminal-green', text: 'text-terminal-green' }
                     return (
                       <li key={p.projectId} className="font-mono text-sm">
                         <div className="flex justify-between mb-1">
                           <span className="text-terminal-text-bright">{p.projectName}</span>
-                          <span className="text-terminal-green">{formatEuro(p.earned)}</span>
+                          <span className={colors.text}>{formatEuro(p.earned)}</span>
                         </div>
                         <div className="w-full h-2 bg-terminal-surface rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-terminal-green rounded-full transition-all duration-300"
+                            className={`h-full ${colors.bar} rounded-full transition-all duration-300`}
                             style={{ width: `${Math.min(pct, 100)}%` }}
                           />
                         </div>

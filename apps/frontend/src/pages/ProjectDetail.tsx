@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import type { ProjectStatus, Client, UpdateProjectInput, Task } from '@timesheet/shared'
+import { computeBudgetStatus, budgetLevelColors } from '@timesheet/shared'
 import { api } from '../api/client'
 import { useClients } from '../hooks/useClients'
 import { useTasks } from '../hooks/useTasks'
@@ -95,6 +96,8 @@ export function ProjectDetail() {
   const billableHours = status.billableMinutes / 60
   const earned = rate !== null ? billableHours * rate : null
   const budgetUsedPct = budget ? Math.min((trackedHours / budget) * 100, 100) : null
+  const budgetStatus = computeBudgetStatus(project.estimatedHours, status.totalMinutes)
+  const budgetColors = budgetLevelColors(budgetStatus.level)
   const billablePct = status.totalMinutes > 0
     ? (status.billableMinutes / status.totalMinutes) * 100
     : 0
@@ -158,6 +161,7 @@ export function ProjectDetail() {
               ? `${Math.max(budget - trackedHours, 0).toFixed(1)}h left`
               : '--'
           }
+          colorClass={budget !== null ? budgetColors.text : undefined}
         />
         <KpiCard
           label="Earned"
@@ -172,15 +176,13 @@ export function ProjectDetail() {
           <div className="mb-4">
             <div className="flex justify-between mb-1">
               <span className="text-terminal-text font-mono text-sm">Budget Progress</span>
-              <span className="text-terminal-text-bright font-mono text-sm">
+              <span className={`${budgetColors.text} font-mono text-sm`}>
                 {budgetUsedPct.toFixed(0)}% ({trackedHours.toFixed(1)} / {budget}h)
               </span>
             </div>
             <div className="w-full h-2 bg-terminal-surface rounded-full overflow-hidden">
               <div
-                className={`h-full rounded-full transition-all duration-300 ${
-                  budgetUsedPct >= 90 ? 'bg-terminal-danger' : 'bg-terminal-green'
-                }`}
+                className={`h-full rounded-full transition-all duration-300 ${budgetColors.bar}`}
                 style={{ width: `${budgetUsedPct}%` }}
               />
             </div>
@@ -234,17 +236,19 @@ function KpiCard({
   label,
   value,
   highlight,
+  colorClass,
 }: {
   label: string
   value: string
   highlight?: boolean
+  colorClass?: string
 }) {
   return (
     <div className="bg-terminal-bg-light border border-terminal-border rounded-lg p-4">
       <p className="text-terminal-text font-mono text-xs mb-1">{label}</p>
       <p
         className={`font-mono text-2xl font-bold truncate ${
-          highlight ? 'text-terminal-green' : 'text-terminal-text-bright'
+          colorClass ?? (highlight ? 'text-terminal-green' : 'text-terminal-text-bright')
         }`}
       >
         {value}
