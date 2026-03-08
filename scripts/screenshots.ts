@@ -24,16 +24,9 @@ async function takeScreenshots() {
     console.log(`  ✓ ${name}.png`)
   }
 
-  // 1. Dashboard — click "Last Month" to show February (full month of data)
+  // 1. Dashboard — "This Week" is the default view, just capture it
   console.log('Taking screenshots...')
   await page.goto(`${BASE_URL}/`, { waitUntil: 'networkidle0' })
-  const lastMonthBtn = await page.evaluateHandle(() =>
-    [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Last Month')
-  )
-  if (lastMonthBtn) {
-    await (lastMonthBtn as any).click()
-    await sleep(1000)
-  }
   await screenshot('dashboard')
 
   // 2. Tracker — navigate to current month (March 2026, has data for week 1)
