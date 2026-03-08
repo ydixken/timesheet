@@ -16,6 +16,8 @@ Log your hours with descriptions, project assignments, and billable/non-billable
 
 ![Tracker](assets/tracker.png)
 
+The description field has **fuzzy autocomplete** — start typing and matching past entries appear as suggestions. This makes it fast to reuse common descriptions without typing them in full. Click a suggestion or use arrow keys + Enter to select. You can also **click any entry's description** to edit it inline without opening the full edit form.
+
 There's also a **weekly grid view** (spreadsheet-style, projects as rows, days as columns) for quick bulk entry.
 
 ### Calendar

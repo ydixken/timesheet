@@ -88,6 +88,19 @@ body {
   caret-color: var(--color-terminal-green);
 }
 
+.touch-safe {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: text;
+}
+
+@media (pointer: coarse) {
+  .touch-safe {
+    user-select: none;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;

@@ -12,7 +12,9 @@ export function formatDecimalHours(minutes: number): string {
 
 export function formatTimeRange(start: string | null, end: string | null): string {
   if (!start || !end) return ''
-  return `${start} – ${end}`
+  const s = start.length > 5 ? start.slice(0, 5) : start
+  const e = end.length > 5 ? end.slice(0, 5) : end
+  return `${s} – ${e}`
 }
 
 export function parseHoursToMinutes(input: string): number | null {

@@ -3,6 +3,8 @@ import type { CreateEntryInput, Project } from '@timesheet/shared'
 import type { EntryWithProject } from '../types'
 import { useEntries } from '../hooks/useEntries'
 import { useProjects } from '../hooks/useProjects'
+import { DescriptionAutocomplete } from '../components/DescriptionAutocomplete'
+import { InlineEditableText } from '../components/InlineEditableText'
 import { ProjectBadge } from '../components/ProjectBadge'
 import { ProjectSelector } from '../components/ProjectSelector'
 import { Button } from '../components/ui/Button'
@@ -165,11 +167,13 @@ export function Tracker() {
       <div className="bg-terminal-bg-light border border-terminal-border rounded-lg p-4 mb-6">
         <div className="flex flex-wrap items-end gap-3">
           <div className="flex-1 min-w-[200px]">
-            <Input
-              placeholder="What are you working on?"
+            <DescriptionAutocomplete
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
+              onChange={setDescription}
+              entries={entries}
+              onSubmit={handleAdd}
+              onProjectSelect={setProjectId}
+              placeholder="What are you working on?"
             />
           </div>
           <ProjectSelector
@@ -279,7 +283,7 @@ export function Tracker() {
           <p className="text-terminal-text font-mono">No entries this month. Start tracking!</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-6 touch-safe" onContextMenu={(e) => e.preventDefault()}>
           {[...grouped.entries()].map(([date, dayEntries]) => {
             const dayTotal = dayEntries.reduce((sum, e) => sum + e.durationMin, 0)
             return (
@@ -327,6 +331,9 @@ export function Tracker() {
                           await update(entry.id, { date: newDate })
                           fetchCurrentMonth()
                         }}
+                        onDescriptionUpdate={async (newDesc) => {
+                          await update(entry.id, { description: newDesc })
+                        }}
                         isConfirmingDelete={deletingId === entry.id}
                         onCancelDelete={() => setDeletingId(null)}
                       />
@@ -347,6 +354,7 @@ function EntryRow({
   onEdit,
   onDelete,
   onDateChange,
+  onDescriptionUpdate,
   isConfirmingDelete,
   onCancelDelete,
 }: {
@@ -354,6 +362,7 @@ function EntryRow({
   onEdit: () => void
   onDelete: () => void
   onDateChange: (date: string) => void
+  onDescriptionUpdate: (desc: string) => Promise<void>
   isConfirmingDelete: boolean
   onCancelDelete: () => void
 }) {
@@ -366,12 +375,26 @@ function EntryRow({
         e.dataTransfer.setData('text/plain', entry.id)
         e.dataTransfer.effectAllowed = 'move'
       }}
-      className="group flex items-center justify-between bg-terminal-bg-light rounded px-4 py-3 border border-transparent hover:border-l-2 hover:border-l-terminal-green transition-all cursor-grab active:cursor-grabbing active:opacity-50"
+      className="touch-safe group grid grid-cols-[auto_1fr_30rem_auto] items-center gap-x-3 bg-terminal-bg-light rounded px-4 py-3 border border-transparent hover:border-l-2 hover:border-l-terminal-green transition-all"
     >
-      <div className="flex items-center gap-4 flex-1 min-w-0">
-        <span className="text-sm text-terminal-text-bright truncate max-w-xs">
-          {entry.description || <span className="text-terminal-text italic">no description</span>}
-        </span>
+      <div className="cursor-grab active:cursor-grabbing text-terminal-border group-hover:text-terminal-text transition-colors" title="Drag to move">
+        <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
+          <circle cx="2" cy="2" r="1.5" />
+          <circle cx="8" cy="2" r="1.5" />
+          <circle cx="2" cy="8" r="1.5" />
+          <circle cx="8" cy="8" r="1.5" />
+          <circle cx="2" cy="14" r="1.5" />
+          <circle cx="8" cy="14" r="1.5" />
+        </svg>
+      </div>
+      <div className="min-w-0">
+        <InlineEditableText
+          value={entry.description}
+          onSave={onDescriptionUpdate}
+          placeholder="no description"
+        />
+      </div>
+      <div className="whitespace-nowrap truncate">
         {entry.project && (
           <ProjectBadge
             name={entry.project.name}
@@ -388,17 +411,15 @@ function EntryRow({
           className="bg-transparent border-none text-xs font-mono text-terminal-text cursor-pointer opacity-0 group-hover:opacity-100 transition-opacity focus:opacity-100 outline-none"
           title="Change date"
         />
-        {timeRange && (
-          <span className="text-xs font-mono text-terminal-text">{timeRange}</span>
-        )}
-        <span className="text-sm font-mono text-terminal-text-bright font-medium">
+        <span className="text-xs font-mono text-terminal-text whitespace-nowrap w-[13ch] text-right">
+          {timeRange || ''}
+        </span>
+        <span className="text-sm font-mono text-terminal-text-bright font-medium whitespace-nowrap w-[6ch] text-right">
           {formatDuration(entry.durationMin)}
         </span>
-        {!entry.billable && (
-          <span className="text-xs text-terminal-danger font-mono" title="Non-billable">
-            nb
-          </span>
-        )}
+        <span className="text-xs text-terminal-danger font-mono w-[2ch]" title={!entry.billable ? 'Non-billable' : undefined}>
+          {!entry.billable ? 'nb' : ''}
+        </span>
         <div className={`flex items-center gap-1 transition-opacity ${isConfirmingDelete ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
           <button
             onClick={onEdit}
