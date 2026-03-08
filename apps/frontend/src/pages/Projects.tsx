@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import type { Project, CreateProjectInput, Client } from '@timesheet/shared'
 import { useProjects } from '../hooks/useProjects'
 import { useClients } from '../hooks/useClients'
@@ -19,6 +19,7 @@ export function Projects() {
   const navigate = useNavigate()
   const { projects, loading, fetch: fetchProjects, create } = useProjects()
   const { clients, fetch: fetchClients } = useClients()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [filter, setFilter] = useState<Filter>('all')
   const [showCreate, setShowCreate] = useState(false)
   const [showZipExport, setShowZipExport] = useState(false)
@@ -28,6 +29,17 @@ export function Projects() {
     fetchProjects(filter)
     fetchClients()
   }, [filter, fetchProjects, fetchClients])
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'create') {
+      setShowCreate(true)
+      setSearchParams({}, { replace: true })
+    } else if (action === 'export') {
+      setShowZipExport(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const filtered = (projects as ProjectWithClient[]).filter((p) => {
     if (filter === 'active') return p.active

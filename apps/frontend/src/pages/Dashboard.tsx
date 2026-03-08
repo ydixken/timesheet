@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useCommandPalette } from '../components/CommandPalette'
 import {
   BarChart,
   Bar,
@@ -142,6 +143,15 @@ export function Dashboard() {
           </button>
         ))}
       </div>
+
+      {/* Command palette hint */}
+      <button
+        onClick={() => useCommandPalette.getState().toggle()}
+        className="mb-6 flex items-center gap-2 text-terminal-text/40 hover:text-terminal-text/70 font-mono text-xs transition-colors cursor-pointer"
+      >
+        <kbd className="px-1.5 py-0.5 rounded border border-terminal-border text-[10px]">⌘K</kbd>
+        <span>open command palette for quick navigation and time entry</span>
+      </button>
 
       {loading && !data ? (
         <p className="text-terminal-text font-mono text-sm">Loading...</p>

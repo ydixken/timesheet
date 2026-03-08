@@ -21,6 +21,8 @@
 
   --animate-blink: blink 1s step-end infinite;
   --animate-fade-in: fadeIn 0.5s ease-in forwards;
+  --animate-cmd-overlay: cmdOverlay 0.15s ease-out;
+  --animate-cmd-content: cmdContent 0.15s ease-out;
 }
 
 @keyframes blink {
@@ -31,6 +33,16 @@
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
+}
+
+@keyframes cmdOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes cmdContent {
+  from { opacity: 0; transform: translateY(-8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 body {
@@ -65,6 +77,15 @@ body {
 ::selection {
   background: rgba(57, 255, 20, 0.2);
   color: var(--color-terminal-green);
+}
+
+[cmdk-item][data-selected='true'] {
+  background: rgba(57, 255, 20, 0.08);
+  border-left: 2px solid var(--color-terminal-green);
+}
+
+[cmdk-input] {
+  caret-color: var(--color-terminal-green);
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -54,6 +54,20 @@ Need to send timesheets for all your projects at the end of the month? The **exp
 
 Most freelancers bill in rounded increments - quarter hours, ten-minute blocks, you name it. Each project can have its own rounding setting (5, 10, 15, or 30 minutes), and it kicks in when you generate a PDF. The rounding happens per day: each day's total gets rounded to the nearest increment, and the monthly total is the sum of those rounded values. Your raw tracked data stays untouched - the rounding only affects the customer-facing PDF so you always have exact numbers for your own analytics. The customer just sees clean, rounded hours as if that's what you tracked.
 
+### Command Palette
+
+Press `Cmd+K` (or `Ctrl+K`) to open the command palette. It gives you fuzzy-searchable access to all pages, actions, and projects without touching the mouse. You can also create time entries inline using quick-add syntax:
+
+```
+2h K8s Platform | deployed ingress
+1h30m FinOps | reviewed cost report
+30m Internal
+```
+
+The format is `<duration> <project> [| description]`. Duration supports `2h`, `30m`, `1h30m`, `1.5h`, and `2:30` formats. The project is matched by substring against your active projects. The entry gets created for today and you get a confirmation toast.
+
+Available actions from the palette include navigating to any page, creating new projects or clients, triggering the monthly export, and jumping to a specific project.
+
 ## Tech Stack
 
 - React 18, Vite, Tailwind CSS v4, Zustand, Recharts

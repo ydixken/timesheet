@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../store/auth'
+import { useCommandPalette } from '../CommandPalette'
 
 const navItems = [
   { to: '/', label: 'dashboard' },
@@ -42,6 +43,18 @@ export function Sidebar() {
           </NavLink>
         ))}
       </nav>
+
+      <div className="px-5 py-2">
+        <button
+          onClick={() => useCommandPalette.getState().toggle()}
+          className="flex items-center gap-2 w-full text-terminal-text/40 hover:text-terminal-text/70 font-mono text-xs transition-colors cursor-pointer"
+        >
+          <kbd className="px-1.5 py-0.5 rounded border border-terminal-border text-[10px]">
+            {'⌘K'}
+          </kbd>
+          <span>command palette</span>
+        </button>
+      </div>
 
       <div className="p-5 border-t border-terminal-border">
         <button

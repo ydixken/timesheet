@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import type { Client, CreateClientInput, UpdateClientInput } from '@timesheet/shared'
 import { useClients } from '../hooks/useClients'
 import { api } from '../api/client'
@@ -9,6 +10,7 @@ import { formatDecimalHours } from '../lib/time'
 type ClientWithStats = Client & { projectCount: number; totalMinutes: number }
 
 export function Clients() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const { clients, loading, fetch: fetchClients } = useClients()
   const [formMode, setFormMode] = useState<'closed' | 'create' | 'edit'>('closed')
   const [editingClient, setEditingClient] = useState<ClientWithStats | null>(null)
@@ -17,6 +19,14 @@ export function Clients() {
   useEffect(() => {
     fetchClients()
   }, [fetchClients])
+
+  useEffect(() => {
+    const action = searchParams.get('action')
+    if (action === 'create') {
+      setFormMode('create')
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   const typedClients = clients as ClientWithStats[]
 

@@ -10,6 +10,7 @@ import { Reports } from './pages/Reports'
 import { Projects } from './pages/Projects'
 import { ProjectDetail } from './pages/ProjectDetail'
 import { Clients } from './pages/Clients'
+import { CommandPalette } from './components/CommandPalette'
 
 function OidcCallback() {
   const initialize = useAuthStore((s) => s.initialize)
@@ -51,12 +52,15 @@ function ProtectedRoute() {
   }
 
   return (
-    <div className="flex min-h-screen bg-terminal-bg">
-      <Sidebar />
-      <main className="flex-1 ml-56 p-8">
-        <Outlet />
-      </main>
-    </div>
+    <>
+      <div className="flex min-h-screen bg-terminal-bg">
+        <Sidebar />
+        <main className="flex-1 ml-56 p-8">
+          <Outlet />
+        </main>
+      </div>
+      <CommandPalette />
+    </>
   )
 }
 
