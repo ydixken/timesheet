@@ -19,6 +19,11 @@ spec:
     - hosts:
         - {{ .Values.ingress.host }}
       secretName: {{ .Values.ingress.tls.secretName }}
+    {{- range .Values.ingress.extraHosts }}
+    - hosts:
+        - {{ .host }}
+      secretName: {{ .tlsSecretName }}
+    {{- end }}
   {{- end }}
   rules:
     - host: {{ .Values.ingress.host }}
@@ -38,4 +43,23 @@ spec:
                 name: {{ include "timesheet.fullname" . }}-frontend
                 port:
                   number: {{ .Values.frontend.port }}
+    {{- range .Values.ingress.extraHosts }}
+    - host: {{ .host }}
+      http:
+        paths:
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "timesheet.fullname" $ }}-backend
+                port:
+                  number: {{ $.Values.backend.port }}
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "timesheet.fullname" $ }}-frontend
+                port:
+                  number: {{ $.Values.frontend.port }}
+    {{- end }}
 {{- end }}

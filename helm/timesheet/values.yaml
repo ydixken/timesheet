@@ -50,6 +50,7 @@ ingress:
   enabled: true
   className: nginx
   host: ""
+  extraHosts: []
   annotations: {}
   tls:
     enabled: true
