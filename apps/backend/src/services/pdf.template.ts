@@ -33,7 +33,7 @@ function escapeHtml(str: string): string {
 function buildDayRows(days: PdfDayRow[]): string {
   return days
     .map((day, i) => {
-      const bgClass = day.isWeekend
+      const bgClass = day.isWeekend && !day.hours
         ? 'weekend'
         : i % 2 === 0
           ? 'even'
@@ -400,12 +400,12 @@ function buildTerminalDayRows(days: PdfDayRow[]): string {
   return days
     .map((day, i) => {
       const lineNo = String(i + 1).padStart(2, '0')
-      if (day.isWeekend) {
+      if (day.isWeekend && !day.hours) {
         return `<tr class="t-weekend">
           <td class="t-gutter">${lineNo}</td>
           <td class="t-date">// ${escapeHtml(day.date)}</td>
-          <td class="t-hours">${day.hours ? `${escapeHtml(day.hours)}&nbsp;h` : '---'}</td>
-          <td class="t-desc">${day.description ? `// ${escapeHtml(day.description)}` : ''}</td>
+          <td class="t-hours">---</td>
+          <td class="t-desc"></td>
         </tr>`
       }
       return `<tr class="t-row${i % 2 === 0 ? ' t-even' : ''}">
