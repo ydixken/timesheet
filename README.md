@@ -172,4 +172,4 @@ For production, GitLab CI builds and pushes images to the container registry on 
 
 ## License
 
-Private. All rights reserved.
+[MIT](LICENSE)
