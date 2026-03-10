@@ -8,6 +8,9 @@ async function getBrowser(): Promise<Browser> {
   if (!browser || !browser.connected) {
     browser = await puppeteer.launch({
       headless: true,
+      ...(config.PUPPETEER_EXECUTABLE_PATH && {
+        executablePath: config.PUPPETEER_EXECUTABLE_PATH,
+      }),
       args: config.PUPPETEER_NO_SANDBOX
         ? ['--no-sandbox', '--disable-setuid-sandbox']
         : [],

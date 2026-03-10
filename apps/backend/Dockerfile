@@ -22,6 +22,13 @@ RUN pnpm --filter @timesheet/shared build && pnpm --filter @timesheet/backend bu
 # Stage 3: Production image with Puppeteer
 FROM ghcr.io/puppeteer/puppeteer:24 AS final
 WORKDIR /app
+
+# Create a stable Chrome path from whatever version the base image ships
+USER root
+RUN ln -sf $(find /home/pptruser/.cache/puppeteer/chrome -name chrome -type f | head -1) /usr/local/bin/chrome-stable
+USER pptruser
+ENV PUPPETEER_EXECUTABLE_PATH=/usr/local/bin/chrome-stable
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=deps /app/apps/backend/node_modules ./apps/backend/node_modules

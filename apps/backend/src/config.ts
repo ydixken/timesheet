@@ -19,6 +19,7 @@ const envSchema = z
       .string()
       .transform((v) => v === 'true' || v === '1')
       .default('false'),
+    PUPPETEER_EXECUTABLE_PATH: z.string().optional(),
     MAX_UPLOAD_SIZE_MB: z.coerce.number().positive().default(5),
   })
   .superRefine((data, ctx) => {
