@@ -12,8 +12,9 @@ describe('formatDuration', () => {
 })
 
 describe('formatDecimalHours', () => {
-  it('formats to one decimal', () => expect(formatDecimalHours(390)).toBe('6.5'))
-  it('formats whole hours', () => expect(formatDecimalHours(480)).toBe('8.0'))
+  it('formats to two decimals', () => expect(formatDecimalHours(390)).toBe('6.50'))
+  it('formats whole hours', () => expect(formatDecimalHours(480)).toBe('8.00'))
+  it('formats quarter hours precisely', () => expect(formatDecimalHours(465)).toBe('7.75'))
 })
 
 describe('parseHoursToMinutes', () => {
