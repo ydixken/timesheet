@@ -30,7 +30,7 @@ const MONTH_NAMES = [
 ]
 
 function formatGermanDecimal(n: number): string {
-  return n.toFixed(1).replace('.', ',')
+  return n.toFixed(2).replace('.', ',')
 }
 
 function formatGermanAmount(n: number): string {

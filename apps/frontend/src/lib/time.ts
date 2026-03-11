@@ -7,7 +7,7 @@ export function formatDuration(minutes: number): string {
 }
 
 export function formatDecimalHours(minutes: number): string {
-  return (minutes / 60).toFixed(1)
+  return (minutes / 60).toFixed(2)
 }
 
 export function formatTimeRange(start: string | null, end: string | null): string {

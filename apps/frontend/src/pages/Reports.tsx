@@ -178,8 +178,8 @@ export function Reports() {
     if (!summary) return []
     return summary.groups.map((g) => ({
       name: g.name,
-      hours: +(g.totalMinutes / 60).toFixed(1),
-      billable: +(g.billableMinutes / 60).toFixed(1),
+      hours: +(g.totalMinutes / 60).toFixed(2),
+      billable: +(g.billableMinutes / 60).toFixed(2),
       color: g.color,
     }))
   }, [summary])
@@ -380,7 +380,7 @@ export function Reports() {
                       fontFamily: 'JetBrains Mono',
                       fontSize: '12px',
                     }}
-                    formatter={(value: number) => [`${(value / 60).toFixed(1)}h`, 'Hours']}
+                    formatter={(value: number) => [`${(value / 60).toFixed(2)}h`, 'Hours']}
                   />
                 </PieChart>
               </ResponsiveContainer>
