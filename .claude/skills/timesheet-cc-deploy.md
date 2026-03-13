@@ -73,4 +73,4 @@ Report the final status to the user, including:
 - **GitLab runner namespace**: `gitlab-runner-cluster-fail`
 - **Deployments**: `timesheet-backend`, `timesheet-frontend`
 - **Registry**: `registry.gitlab.com/cluster.fail/timesheet/{backend,frontend}`
-- **Domain**: `timesheet.dixken.de`
+- **Domain**: `https://timesheet.cloudcats.io/`
