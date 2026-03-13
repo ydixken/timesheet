@@ -18,13 +18,16 @@ import { computeBudgetStatus, budgetLevelColors } from '@timesheet/shared'
 import { api } from '../api/client'
 import { formatDecimalHours } from '../lib/time'
 
-type Range = 'this_week' | 'last_week' | 'this_month' | 'last_month'
+type Range = 'today' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'last_3_months' | 'last_6_months'
 
 const RANGE_OPTIONS: { value: Range; label: string }[] = [
+  { value: 'today', label: 'Today' },
   { value: 'this_week', label: 'This Week' },
   { value: 'last_week', label: 'Last Week' },
   { value: 'this_month', label: 'This Month' },
   { value: 'last_month', label: 'Last Month' },
+  { value: 'last_3_months', label: 'Last 3 Months' },
+  { value: 'last_6_months', label: 'Last 6 Months' },
 ]
 
 const CHART_TEXT = '#b3b1ad'
@@ -38,7 +41,7 @@ function formatEuro(cents: number): string {
 
 function formatDayLabel(dateStr: string): string {
   const d = new Date(dateStr + 'T12:00:00')
-  return d.toLocaleDateString('en-US', { weekday: 'short' })
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
 export function Dashboard() {

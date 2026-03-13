@@ -37,6 +37,16 @@ function getDateRange(range: string, start?: string, end?: string): { start: str
       const last = new Date(yyyy, mm, 0)
       return { start: fmtDate(first), end: fmtDate(last) }
     }
+    case 'today':
+      return { start: fmtDate(today), end: fmtDate(today) }
+    case 'last_3_months': {
+      const first3 = new Date(yyyy, mm - 2, 1)
+      return { start: fmtDate(first3), end: fmtDate(today) }
+    }
+    case 'last_6_months': {
+      const first6 = new Date(yyyy, mm - 5, 1)
+      return { start: fmtDate(first6), end: fmtDate(today) }
+    }
     case 'custom':
       if (start && end) return { start, end }
       return { start: fmtDate(today), end: fmtDate(today) }
@@ -252,7 +262,7 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
     })
 
     // Revenue forecast — adapts to the selected range
-    const isPastPeriod = range === 'last_week' || range === 'last_month'
+    const isPastPeriod = range === 'last_week' || range === 'last_month' || range === 'custom'
 
     // Compute revenue for the selected period (from the already-fetched rows)
     const periodRevenue = rows
@@ -279,14 +289,21 @@ export default async function dashboardRoutes(fastify: FastifyInstance) {
       workingDaysElapsed = periodWorkingDays
       avgDailyRevenue = periodWorkingDays > 0 ? periodRevenue / periodWorkingDays : 0
       forecastedMonthEnd = periodRevenue // actual total, no forecast
-      periodLabel = range === 'last_week' ? 'Last Week' : 'Last Month'
+      periodLabel = range === 'last_week' ? 'Last Week' : range === 'last_month' ? 'Last Month' : 'Custom Range'
     } else {
       // Current period: project forward
       workingDaysTotal = countWorkingDays(currentYear, currentMonth)
       workingDaysElapsed = countWorkingDays(currentYear, currentMonth, now.getDate())
       avgDailyRevenue = workingDaysElapsed > 0 ? earnedThisMonth / workingDaysElapsed : 0
       forecastedMonthEnd = Math.round(avgDailyRevenue * workingDaysTotal * 100) / 100
-      periodLabel = range === 'this_week' ? 'This Week' : 'This Month'
+      const currentLabels: Record<string, string> = {
+        today: 'Today',
+        this_week: 'This Week',
+        this_month: 'This Month',
+        last_3_months: 'Last 3 Months',
+        last_6_months: 'Last 6 Months',
+      }
+      periodLabel = currentLabels[range] ?? 'This Month'
     }
 
     const [targetRow] = await db
