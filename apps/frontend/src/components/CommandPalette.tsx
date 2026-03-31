@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { Command } from 'cmdk'
 import { useNavigate } from 'react-router-dom'
 import { create } from 'zustand'
@@ -21,6 +21,9 @@ function formatDuration(min: number): string {
   if (h) return `${h}h`
   return `${m}m`
 }
+
+/** Check if the input starts with a duration pattern (quick-add mode) */
+const DURATION_PREFIX = /^(\d+h\d+m|\d+:\d{2}|\d+\.?\d*h|\d+m)\s*/
 
 const navItems = [
   { to: '/', label: 'dashboard' },
@@ -81,31 +84,57 @@ export function CommandPalette() {
   )
 
   // Quick-add parsing
+  const isQuickAddMode = DURATION_PREFIX.test(inputValue.trim())
   const parsed = parseQuickEntry(inputValue)
   const matchedProject = parsed ? matchProject(parsed.projectQuery, activeProjects) : null
 
-  const handleQuickAdd = async () => {
-    if (!parsed || !matchedProject || submitting) return
+  // In quick-add mode, fuzzy-match projects against the project query portion
+  const projectMatches = useMemo(() => {
+    if (!isQuickAddMode || !parsed?.projectQuery) return []
+    const q = parsed.projectQuery.toLowerCase()
+    return activeProjects.filter((p) => p.name.toLowerCase().includes(q))
+  }, [isQuickAddMode, parsed?.projectQuery, activeProjects])
+
+  const canSubmit = parsed && matchedProject && parsed.description.length > 0
+
+  // Snapshot parsed state for the async handler to avoid stale closure
+  const handleQuickAdd = useCallback(async () => {
+    const snap = parseQuickEntry(inputValue)
+    const proj = snap ? matchProject(snap.projectQuery, activeProjects) : null
+    if (!snap || !proj || !snap.description || submitting) return
     setSubmitting(true)
     try {
       const today = formatLocalDate(new Date())
       await useEntries.getState().create({
-        projectId: matchedProject.id,
-        description: parsed.description,
+        projectId: proj.id,
+        description: snap.description,
         date: today,
-        durationMin: parsed.durationMin,
-        billable: matchedProject.billable,
+        durationMin: snap.durationMin,
+        billable: proj.billable,
       })
-      checkBudget(matchedProject.id)
+      checkBudget(proj.id)
+      // Refresh the tracker entries
+      useEntries.getState().fetch()
       setOpen(false)
-      setSuccessToast(`${formatDuration(parsed.durationMin)} added to ${matchedProject.name}`)
+      setSuccessToast(`${formatDuration(snap.durationMin)} added to ${proj.name}`)
       setTimeout(() => setSuccessToast(null), 3000)
     } catch {
-      // silently fail - the entry store will handle errors
+      // silently fail
     } finally {
       setSubmitting(false)
     }
-  }
+  }, [inputValue, activeProjects, submitting, checkBudget, setOpen])
+
+  // When a project is selected from the dropdown, insert it into the input
+  const handleProjectSelect = useCallback(
+    (projectName: string) => {
+      const match = inputValue.trim().match(DURATION_PREFIX)
+      if (!match) return
+      const durationPart = match[0]
+      setInputValue(`${durationPart}${projectName} | `)
+    },
+    [inputValue],
+  )
 
   const handleSelect = (to: string) => {
     setOpen(false)
@@ -117,13 +146,23 @@ export function CommandPalette() {
     return clients.find((c) => c.id === id)?.name ?? null
   }
 
+  // Custom filter: in quick-add mode, bypass cmdk's filter (we control visibility via rendering)
+  const filter = useCallback(
+    (value: string, search: string) => {
+      if (isQuickAddMode) return 1
+      if (!search) return 1
+      return value.toLowerCase().includes(search.toLowerCase()) ? 1 : 0
+    },
+    [isQuickAddMode],
+  )
+
   return (
     <>
       <Command.Dialog
         open={open}
         onOpenChange={setOpen}
         label="Command palette"
-        shouldFilter={true}
+        filter={filter}
         className="fixed inset-0 z-50"
       >
         {/* Overlay */}
@@ -148,10 +187,52 @@ export function CommandPalette() {
               />
             </div>
 
+            {/* Quick-add preview bar */}
+            {isQuickAddMode && (
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-terminal-border bg-terminal-bg/50">
+                {parsed && (
+                  <>
+                    <span className="px-2 py-0.5 rounded border border-terminal-blue text-terminal-blue font-mono text-xs font-bold">
+                      {formatDuration(parsed.durationMin)}
+                    </span>
+                    {matchedProject ? (
+                      <span className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-terminal-border text-xs font-mono">
+                        <span
+                          className="w-2 h-2 rounded-full inline-block"
+                          style={{ backgroundColor: matchedProject.color }}
+                        />
+                        <span className="text-terminal-text-bright">{matchedProject.name}</span>
+                      </span>
+                    ) : parsed.projectQuery ? (
+                      <span className="px-2 py-0.5 rounded border border-red-500/50 text-red-400 font-mono text-xs">
+                        {parsed.projectQuery} <span className="text-red-400/60">- no match</span>
+                      </span>
+                    ) : (
+                      <span className="text-terminal-text/40 font-mono text-xs">type project name...</span>
+                    )}
+                    {matchedProject && !inputValue.includes('|') && (
+                      <span className="text-terminal-text/40 font-mono text-xs">type | then description</span>
+                    )}
+                    {matchedProject && inputValue.includes('|') && !parsed.description && (
+                      <span className="text-terminal-text/40 font-mono text-xs">type description...</span>
+                    )}
+                    {parsed.description && (
+                      <span className="text-terminal-text/60 font-mono text-xs truncate">
+                        | {parsed.description}
+                      </span>
+                    )}
+                  </>
+                )}
+                {!parsed && (
+                  <span className="text-terminal-text/40 font-mono text-xs">type project name after duration...</span>
+                )}
+              </div>
+            )}
+
             {/* List */}
             <Command.List className="max-h-72 overflow-y-auto">
-              {/* Quick-add item */}
-              {parsed && matchedProject && (
+              {/* Quick-add confirm item — only when description is provided */}
+              {canSubmit && (
                 <Command.Item
                   value={`quick-add-${inputValue}`}
                   keywords={[inputValue]}
@@ -159,65 +240,102 @@ export function CommandPalette() {
                   className="flex items-center gap-3 px-3 py-2.5 rounded font-mono text-sm text-terminal-text cursor-pointer"
                 >
                   <span className="text-terminal-green font-bold">+</span>
-                  <span className="px-1.5 py-0.5 rounded text-xs bg-terminal-surface text-terminal-blue">
-                    {formatDuration(parsed.durationMin)}
+                  <span className="px-1.5 py-0.5 rounded border border-terminal-blue text-xs text-terminal-blue font-bold">
+                    {formatDuration(parsed!.durationMin)}
                   </span>
                   <div
                     className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: matchedProject.color }}
+                    style={{ backgroundColor: matchedProject!.color }}
                   />
-                  <span className="text-terminal-text-bright">{matchedProject.name}</span>
-                  {parsed.description && (
-                    <span className="text-terminal-text/60 truncate">| {parsed.description}</span>
-                  )}
+                  <span className="text-terminal-text-bright">{matchedProject!.name}</span>
+                  <span className="text-terminal-text/60 truncate">| {parsed!.description}</span>
+                  <span className="ml-auto text-terminal-green/60 text-xs">↵ add</span>
                 </Command.Item>
               )}
 
-              {/* Navigation */}
-              <Command.Group heading="[navigation]">
-                {navItems.map(({ to, label }) => (
+              {/* Project fuzzy matches in quick-add mode */}
+              {isQuickAddMode && parsed?.projectQuery && !canSubmit && projectMatches.length > 0 && (
+                <Command.Group heading="[select project]">
+                  {projectMatches.map((project) => (
+                    <Command.Item
+                      key={`qa-${project.id}`}
+                      value={`quick-project-${project.name}`}
+                      keywords={[project.name]}
+                      onSelect={() => handleProjectSelect(project.name)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded font-mono text-sm text-terminal-text cursor-pointer"
+                    >
+                      <div
+                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                        style={{ backgroundColor: project.color }}
+                      />
+                      <span className="text-terminal-text-bright">{project.name}</span>
+                      {clientNameById(project.clientId) && (
+                        <span className="text-terminal-text/50 text-xs">
+                          {clientNameById(project.clientId)}
+                        </span>
+                      )}
+                      <span className="ml-auto text-terminal-text/30 text-xs">↵ select</span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+
+              {/* Quick-add hint when no project match yet */}
+              {isQuickAddMode && parsed?.projectQuery && projectMatches.length === 0 && (
+                <div className="py-6 text-center font-mono text-sm text-terminal-text/50">
+                  no matching projects for "{parsed.projectQuery}"
+                </div>
+              )}
+
+              {/* Navigation — hidden in quick-add mode */}
+              {!isQuickAddMode && (
+                <Command.Group heading="[navigation]">
+                  {navItems.map(({ to, label }) => (
+                    <Command.Item
+                      key={to}
+                      value={label}
+                      onSelect={() => handleSelect(to)}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded font-mono text-sm text-terminal-text cursor-pointer"
+                    >
+                      <span className="text-terminal-green">{'->'}</span>
+                      <span>{label}</span>
+                    </Command.Item>
+                  ))}
+                </Command.Group>
+              )}
+
+              {/* Actions — hidden in quick-add mode */}
+              {!isQuickAddMode && (
+                <Command.Group heading="[actions]">
                   <Command.Item
-                    key={to}
-                    value={label}
-                    onSelect={() => handleSelect(to)}
+                    value="new project"
+                    onSelect={() => handleSelect('/projects?action=create')}
                     className="flex items-center gap-3 px-3 py-2.5 rounded font-mono text-sm text-terminal-text cursor-pointer"
                   >
-                    <span className="text-terminal-green">{'->'}</span>
-                    <span>{label}</span>
+                    <span className="text-terminal-blue">$</span>
+                    <span>new project</span>
                   </Command.Item>
-                ))}
-              </Command.Group>
+                  <Command.Item
+                    value="new client"
+                    onSelect={() => handleSelect('/clients?action=create')}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded font-mono text-sm text-terminal-text cursor-pointer"
+                  >
+                    <span className="text-terminal-blue">$</span>
+                    <span>new client</span>
+                  </Command.Item>
+                  <Command.Item
+                    value="export month"
+                    onSelect={() => handleSelect('/projects?action=export')}
+                    className="flex items-center gap-3 px-3 py-2.5 rounded font-mono text-sm text-terminal-text cursor-pointer"
+                  >
+                    <span className="text-terminal-blue">$</span>
+                    <span>export month</span>
+                  </Command.Item>
+                </Command.Group>
+              )}
 
-              {/* Actions */}
-              <Command.Group heading="[actions]">
-                <Command.Item
-                  value="new project"
-                  onSelect={() => handleSelect('/projects?action=create')}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded font-mono text-sm text-terminal-text cursor-pointer"
-                >
-                  <span className="text-terminal-blue">$</span>
-                  <span>new project</span>
-                </Command.Item>
-                <Command.Item
-                  value="new client"
-                  onSelect={() => handleSelect('/clients?action=create')}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded font-mono text-sm text-terminal-text cursor-pointer"
-                >
-                  <span className="text-terminal-blue">$</span>
-                  <span>new client</span>
-                </Command.Item>
-                <Command.Item
-                  value="export month"
-                  onSelect={() => handleSelect('/projects?action=export')}
-                  className="flex items-center gap-3 px-3 py-2.5 rounded font-mono text-sm text-terminal-text cursor-pointer"
-                >
-                  <span className="text-terminal-blue">$</span>
-                  <span>export month</span>
-                </Command.Item>
-              </Command.Group>
-
-              {/* Projects */}
-              {activeProjects.length > 0 && (
+              {/* Projects — hidden in quick-add mode */}
+              {!isQuickAddMode && activeProjects.length > 0 && (
                 <Command.Group heading="[projects]">
                   {activeProjects.map((project) => (
                     <Command.Item
@@ -241,30 +359,51 @@ export function CommandPalette() {
                 </Command.Group>
               )}
 
-              <Command.Empty className="py-8 text-center font-mono text-sm text-terminal-text/50">
-                no results found_
-              </Command.Empty>
+              {!isQuickAddMode && (
+                <Command.Empty className="py-8 text-center font-mono text-sm text-terminal-text/50">
+                  no results found_
+                </Command.Empty>
+              )}
             </Command.List>
 
             {/* Footer */}
             <div className="flex items-center gap-4 px-4 py-2 border-t border-terminal-border text-terminal-text/40 font-mono text-xs">
-              <span>
-                <kbd className="px-1 py-0.5 rounded border border-terminal-border text-[10px]">
-                  {'↑↓'}
-                </kbd>{' '}
-                navigate
-              </span>
-              <span>
-                <kbd className="px-1 py-0.5 rounded border border-terminal-border text-[10px]">
-                  {'↵'}
-                </kbd>{' '}
-                select
-              </span>
-              <span>
-                <kbd className="px-1 py-0.5 rounded border border-terminal-border text-[10px]">
-                  esc
-                </kbd>{' '}
-                close
+              {isQuickAddMode ? (
+                <span className="text-terminal-text/50">
+                  syntax:{' '}
+                  <span className="text-terminal-blue/60">2h</span>{' '}
+                  <span className="text-terminal-text/50">project</span>{' '}
+                  <span className="text-terminal-text/30">|</span>{' '}
+                  <span className="text-terminal-text/50">description</span>
+                </span>
+              ) : (
+                <span className="text-terminal-text/50">
+                  quick-add:{' '}
+                  <span className="text-terminal-blue/60">2h</span>{' '}
+                  <span className="text-terminal-text/50">project</span>{' '}
+                  <span className="text-terminal-text/30">|</span>{' '}
+                  <span className="text-terminal-text/50">description</span>
+                </span>
+              )}
+              <span className="ml-auto flex items-center gap-3">
+                <span>
+                  <kbd className="px-1 py-0.5 rounded border border-terminal-border text-[10px]">
+                    {'↑↓'}
+                  </kbd>{' '}
+                  navigate
+                </span>
+                <span>
+                  <kbd className="px-1 py-0.5 rounded border border-terminal-border text-[10px]">
+                    {'↵'}
+                  </kbd>{' '}
+                  select
+                </span>
+                <span>
+                  <kbd className="px-1 py-0.5 rounded border border-terminal-border text-[10px]">
+                    esc
+                  </kbd>{' '}
+                  close
+                </span>
               </span>
             </div>
           </div>
@@ -273,7 +412,7 @@ export function CommandPalette() {
 
       {/* Success toast */}
       {successToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-terminal-bg-light border border-terminal-green rounded-lg px-4 py-3 font-mono text-sm text-terminal-green">
+        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-terminal-bg-light border border-terminal-green rounded-lg px-4 py-3 font-mono text-sm text-terminal-green shadow-lg">
           {successToast}
         </div>
       )}

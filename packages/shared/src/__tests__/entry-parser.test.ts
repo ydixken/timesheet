@@ -100,4 +100,69 @@ describe('matchProject', () => {
   it('returns null for empty projects array', () => {
     expect(matchProject('K8s', [])).toBeNull()
   })
+
+  it('returns first match when multiple projects match', () => {
+    const projects = [
+      { name: 'K8s Migration', id: '1' },
+      { name: 'K8s Monitoring', id: '2' },
+    ]
+    expect(matchProject('K8s', projects)?.id).toBe('1')
+  })
+})
+
+describe('parseQuickEntry – description edge cases', () => {
+  it('returns empty description without pipe', () => {
+    const result = parseQuickEntry('2h K8s')
+    expect(result?.description).toBe('')
+  })
+})
+
+describe('quick-add flow integration', () => {
+  const projects = [
+    { name: 'K8s Platform Migration', id: '1' },
+    { name: 'Terraform Modules', id: '2' },
+    { name: 'CI/CD Pipeline Overhaul', id: '3' },
+  ]
+
+  it('parses and matches a full quick-add command with description', () => {
+    const parsed = parseQuickEntry('2h K8s | deployed ingress')
+    expect(parsed).not.toBeNull()
+    expect(parsed!.durationMin).toBe(120)
+    expect(parsed!.projectQuery).toBe('K8s')
+    expect(parsed!.description).toBe('deployed ingress')
+
+    const project = matchProject(parsed!.projectQuery, projects)
+    expect(project).not.toBeNull()
+    expect(project!.name).toBe('K8s Platform Migration')
+  })
+
+  it('parses 1h30m format with description', () => {
+    const parsed = parseQuickEntry('1h30m Terraform | wrote modules')
+    expect(parsed).not.toBeNull()
+    expect(parsed!.durationMin).toBe(90)
+    expect(parsed!.description).toBe('wrote modules')
+
+    const project = matchProject(parsed!.projectQuery, projects)
+    expect(project!.name).toBe('Terraform Modules')
+  })
+
+  it('rejects quick-add without description when description is checked', () => {
+    const parsed = parseQuickEntry('2h K8s')
+    expect(parsed).not.toBeNull()
+    expect(parsed!.description).toBe('')
+    // The command palette requires description.length > 0 to submit
+  })
+
+  it('rejects quick-add with pipe but no description text', () => {
+    const parsed = parseQuickEntry('2h K8s | ')
+    expect(parsed).not.toBeNull()
+    expect(parsed!.description).toBe('')
+  })
+
+  it('handles all duration formats correctly', () => {
+    expect(parseQuickEntry('30m CI | fix pipeline')?.durationMin).toBe(30)
+    expect(parseQuickEntry('1.5h CI | fix pipeline')?.durationMin).toBe(90)
+    expect(parseQuickEntry('2:30 CI | fix pipeline')?.durationMin).toBe(150)
+    expect(parseQuickEntry('1h30m CI | fix pipeline')?.durationMin).toBe(90)
+  })
 })
