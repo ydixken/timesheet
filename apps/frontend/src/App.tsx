@@ -54,12 +54,14 @@ function ProtectedRoute() {
 
   return (
     <>
-      <div className="flex min-h-screen bg-terminal-bg">
-        <Sidebar />
-        <main className="flex-1 ml-56 p-8 pb-16">
-          <Outlet />
-        </main>
-        <footer className="fixed bottom-0 left-56 right-0 py-2 text-center font-mono text-xs text-terminal-text/30">
+      <div className="flex flex-col min-h-screen bg-terminal-bg">
+        <div className="flex flex-1">
+          <Sidebar />
+          <main className="flex-1 ml-56 p-8">
+            <Outlet />
+          </main>
+        </div>
+        <footer className="ml-56 py-2 text-center font-mono text-xs text-terminal-text/30">
           2026 | ./timesheet is made with &lt;3 in Berlin |{' '}
           <a href="https://dixken.de" target="_blank" rel="noopener noreferrer" className="hover:text-terminal-text/50 underline">dixken.de</a>
         </footer>

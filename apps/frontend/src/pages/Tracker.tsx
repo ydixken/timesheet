@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import type { CreateEntryInput, Project } from '@timesheet/shared'
 import type { EntryWithProject } from '../types'
 import { useEntries } from '../hooks/useEntries'
@@ -11,6 +11,7 @@ import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
 import {
   formatDuration,
+  formatLocalDate,
   formatTimeRange,
   parseHoursToMinutes,
   getMonthDates,
@@ -20,7 +21,7 @@ import {
 import { useBudgetAlerts } from '../hooks/useBudgetAlerts'
 
 function todayStr(): string {
-  return new Date().toISOString().split('T')[0]
+  return formatLocalDate(new Date())
 }
 
 function computeDurationFromTimes(start: string, end: string): number | null {
@@ -367,18 +368,27 @@ function EntryRow({
   onCancelDelete: () => void
 }) {
   const timeRange = formatTimeRange(entry.startTime, entry.endTime)
+  const gripRef = useRef<HTMLDivElement>(null)
+  const [dragAllowed, setDragAllowed] = useState(false)
 
   return (
     <div
-      draggable
+      draggable={dragAllowed}
       onDragStart={(e) => {
+        if (!dragAllowed) { e.preventDefault(); return }
         e.dataTransfer.setData('text/plain', entry.id)
         e.dataTransfer.effectAllowed = 'move'
       }}
+      onDragEnd={() => setDragAllowed(false)}
       style={{ gridTemplateColumns: 'auto 1fr minmax(0, 20rem) auto' }}
       className={`touch-safe group grid items-center gap-x-3 rounded px-4 py-3 border border-transparent hover:border-l-2 hover:border-l-terminal-green transition-all ${entry.billable ? 'bg-terminal-bg-light' : 'bg-terminal-bg-light/50 opacity-70'}`}
     >
-      <div className="cursor-grab active:cursor-grabbing text-terminal-border group-hover:text-terminal-text transition-colors" title="Drag to move">
+      <div
+        ref={gripRef}
+        onMouseDown={() => setDragAllowed(true)}
+        className="cursor-grab active:cursor-grabbing text-terminal-border group-hover:text-terminal-text transition-colors"
+        title="Drag to move"
+      >
         <svg width="10" height="16" viewBox="0 0 10 16" fill="currentColor">
           <circle cx="2" cy="2" r="1.5" />
           <circle cx="8" cy="2" r="1.5" />

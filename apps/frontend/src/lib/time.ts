@@ -17,6 +17,13 @@ export function formatTimeRange(start: string | null, end: string | null): strin
   return `${s} – ${e}`
 }
 
+export function formatLocalDate(date: Date): string {
+  const y = date.getFullYear()
+  const m = String(date.getMonth() + 1).padStart(2, '0')
+  const d = String(date.getDate()).padStart(2, '0')
+  return `${y}-${m}-${d}`
+}
+
 export function parseHoursToMinutes(input: string): number | null {
   // Handle "6:30" -> 390 (check HH:MM first, before parseFloat eats the colon)
   const match = input.match(/^(\d+):(\d{2})$/)
@@ -38,7 +45,7 @@ export function getWeekDates(refDate: Date): { start: string; end: string; dates
   for (let i = 0; i < 7; i++) {
     const date = new Date(monday)
     date.setDate(monday.getDate() + i)
-    dates.push(date.toISOString().split('T')[0])
+    dates.push(formatLocalDate(date))
   }
 
   return { start: dates[0], end: dates[6], dates }
@@ -49,7 +56,7 @@ export function getMonthDates(year: number, month: number): { start: string; end
   const dates: string[] = []
   for (let d = 1; d <= lastDay; d++) {
     const date = new Date(year, month - 1, d)
-    dates.push(date.toISOString().split('T')[0])
+    dates.push(formatLocalDate(date))
   }
   return { start: dates[0], end: dates[dates.length - 1], dates }
 }

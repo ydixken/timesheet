@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useEntries } from '../hooks/useEntries'
 import { useProjects } from '../hooks/useProjects'
-import { getWeekDates, groupEntriesByDate } from '../lib/time'
+import { formatLocalDate, getWeekDates, groupEntriesByDate } from '../lib/time'
 import { addDays, formatWeekLabel, formatDayLabel } from '../lib/calendar-utils'
 import { CalendarToolbar } from '../components/calendar/CalendarToolbar'
 import { WeekView } from '../components/calendar/WeekView'
@@ -35,7 +35,7 @@ export function Calendar() {
   const dateRange = useMemo(() => {
     if (view === 'week') return getWeekDates(refDate)
     if (view === 'day') {
-      const d = refDate.toISOString().split('T')[0]
+      const d = formatLocalDate(refDate)
       return { start: d, end: d, dates: [d] }
     }
     // month — getMonthRange returns start/end, no dates array needed

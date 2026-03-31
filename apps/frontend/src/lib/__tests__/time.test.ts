@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  formatDuration, formatDecimalHours, parseHoursToMinutes,
-  getWeekDates, formatDateHeading, groupEntriesByDate
+  formatDuration, formatDecimalHours, formatLocalDate, parseHoursToMinutes,
+  getWeekDates, getMonthDates, formatDateHeading, groupEntriesByDate
 } from '../time'
 
 describe('formatDuration', () => {
@@ -15,6 +15,18 @@ describe('formatDecimalHours', () => {
   it('formats to two decimals', () => expect(formatDecimalHours(390)).toBe('6.50'))
   it('formats whole hours', () => expect(formatDecimalHours(480)).toBe('8.00'))
   it('formats quarter hours precisely', () => expect(formatDecimalHours(465)).toBe('7.75'))
+})
+
+describe('formatLocalDate', () => {
+  it('formats a date as YYYY-MM-DD', () => {
+    expect(formatLocalDate(new Date(2026, 2, 31))).toBe('2026-03-31')
+  })
+  it('zero-pads single-digit month and day', () => {
+    expect(formatLocalDate(new Date(2026, 0, 5))).toBe('2026-01-05')
+  })
+  it('handles Dec 31 without shifting to next year', () => {
+    expect(formatLocalDate(new Date(2026, 11, 31))).toBe('2026-12-31')
+  })
 })
 
 describe('parseHoursToMinutes', () => {
@@ -32,6 +44,14 @@ describe('getWeekDates', () => {
     expect(result.dates).toHaveLength(7)
     expect(result.start).toBe('2026-03-02') // Monday
     expect(result.end).toBe('2026-03-08')   // Sunday
+  })
+})
+
+describe('getMonthDates', () => {
+  it('last date of March is 2026-03-31', () => {
+    const result = getMonthDates(2026, 3)
+    expect(result.end).toBe('2026-03-31')
+    expect(result.dates[result.dates.length - 1]).toBe('2026-03-31')
   })
 })
 

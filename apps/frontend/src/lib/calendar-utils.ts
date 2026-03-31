@@ -1,4 +1,5 @@
 import type { EntryWithProject } from '../types'
+import { formatLocalDate } from './time'
 
 // ── Constants ──
 export const HOUR_HEIGHT_DEFAULT = 60  // px per hour
@@ -204,7 +205,7 @@ export function formatDayLabel(dateStr: string): string {
 
 export function isToday(dateStr: string): boolean {
   const today = new Date()
-  const todayStr = today.toISOString().split('T')[0]
+  const todayStr = formatLocalDate(today)
   return dateStr === todayStr
 }
 

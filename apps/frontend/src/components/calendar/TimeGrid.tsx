@@ -1,6 +1,7 @@
 import { useRef, useEffect, useMemo } from 'react'
 import type { EntryWithProject } from '../../types'
 import { getSmartScrollTarget } from '../../lib/calendar-utils'
+import { formatLocalDate } from '../../lib/time'
 import { HourLabels } from './HourLabels'
 import { DayColumn } from './DayColumn'
 
@@ -46,7 +47,7 @@ export function TimeGrid({ dates, scheduledByDate, hourHeight, onEntryClick }: T
         {/* Day columns */}
         {dates.map((dateStr) => {
           const entries = scheduledByDate.get(dateStr) || []
-          const todayStr = new Date().toISOString().split('T')[0]
+          const todayStr = formatLocalDate(new Date())
           const date = new Date(dateStr + 'T12:00:00')
           const dayOfWeek = date.getDay()
           const weekend = dayOfWeek === 0 || dayOfWeek === 6

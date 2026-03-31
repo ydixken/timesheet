@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify'
-import { eq, and, gte, lte, desc } from 'drizzle-orm'
+import { eq, and, gte, lte, desc, ilike, sql } from 'drizzle-orm'
 import { CreateEntrySchema, UpdateEntrySchema } from '@timesheet/shared'
 import { db } from '../db/index.js'
 import { timeEntries, projects, clients } from '../db/schema.js'
@@ -74,6 +74,44 @@ export default async function entryRoutes(fastify: FastifyInstance) {
 
     const [entry] = await db.insert(timeEntries).values(parsed.data).returning()
     return reply.code(201).send(entry)
+  })
+
+  fastify.get('/entries/descriptions', async (request, reply) => {
+    const { q } = request.query as { q?: string }
+    if (!q || q.length < 1) {
+      return reply.code(400).send({ error: 'Query parameter q is required' })
+    }
+
+    const rows = await db
+      .select({
+        description: timeEntries.description,
+        projectId: timeEntries.projectId,
+        projectName: projects.name,
+        projectColor: projects.color,
+        clientName: clients.name,
+        latestDate: sql<string>`max(${timeEntries.date})`.as('latest_date'),
+      })
+      .from(timeEntries)
+      .leftJoin(projects, eq(timeEntries.projectId, projects.id))
+      .leftJoin(clients, eq(projects.clientId, clients.id))
+      .where(ilike(timeEntries.description, `%${q}%`))
+      .groupBy(
+        timeEntries.description,
+        timeEntries.projectId,
+        projects.name,
+        projects.color,
+        clients.name,
+      )
+      .orderBy(sql`max(${timeEntries.date}) desc`)
+      .limit(8)
+
+    return rows.map(r => ({
+      description: r.description,
+      projectId: r.projectId,
+      projectName: r.projectName,
+      projectColor: r.projectColor,
+      clientName: r.clientName,
+    }))
   })
 
   fastify.get('/entries/:id', async (request, reply) => {

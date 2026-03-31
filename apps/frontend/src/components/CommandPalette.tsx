@@ -7,6 +7,7 @@ import { useProjects } from '../hooks/useProjects'
 import { useClients } from '../hooks/useClients'
 import { useEntries } from '../hooks/useEntries'
 import { useBudgetAlerts } from '../hooks/useBudgetAlerts'
+import { formatLocalDate } from '../lib/time'
 
 export const useCommandPalette = create<{ open: boolean; toggle: () => void }>((set) => ({
   open: false,
@@ -87,7 +88,7 @@ export function CommandPalette() {
     if (!parsed || !matchedProject || submitting) return
     setSubmitting(true)
     try {
-      const today = new Date().toISOString().slice(0, 10)
+      const today = formatLocalDate(new Date())
       await useEntries.getState().create({
         projectId: matchedProject.id,
         description: parsed.description,

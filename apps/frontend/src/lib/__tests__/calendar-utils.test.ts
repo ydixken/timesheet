@@ -12,6 +12,7 @@ import {
   getSmartScrollTarget,
   MIN_ENTRY_HEIGHT,
 } from '../calendar-utils'
+import { formatLocalDate } from '../time'
 
 function mockEntry(overrides: Partial<EntryWithProject> = {}): EntryWithProject {
   return {
@@ -143,7 +144,7 @@ describe('splitScheduledUnscheduled', () => {
 
 describe('isToday', () => {
   it('returns true for today', () => {
-    const todayStr = new Date().toISOString().split('T')[0]
+    const todayStr = formatLocalDate(new Date())
     expect(isToday(todayStr)).toBe(true)
   })
 

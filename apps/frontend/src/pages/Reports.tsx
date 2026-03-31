@@ -14,7 +14,7 @@ import {
 import { api } from '../api/client'
 import { useProjects } from '../hooks/useProjects'
 import { Button } from '../components/ui/Button'
-import { formatDecimalHours } from '../lib/time'
+import { formatDecimalHours, formatLocalDate } from '../lib/time'
 
 interface SummaryGroup {
   id: string
@@ -60,7 +60,7 @@ function defaultStart(): string {
 }
 
 function defaultEnd(): string {
-  return new Date().toISOString().split('T')[0]
+  return formatLocalDate(new Date())
 }
 
 function formatShortDate(dateStr: string): string {

@@ -15,3 +15,13 @@ export const UpdateEntrySchema = CreateEntrySchema.partial()
 
 export type CreateEntryInput = z.infer<typeof CreateEntrySchema>
 export type UpdateEntryInput = z.infer<typeof UpdateEntrySchema>
+
+export const DescriptionSuggestionSchema = z.object({
+  description: z.string(),
+  projectId: z.string().uuid().nullable(),
+  projectName: z.string().nullable(),
+  projectColor: z.string().nullable(),
+  clientName: z.string().nullable(),
+})
+
+export type DescriptionSuggestion = z.infer<typeof DescriptionSuggestionSchema>
