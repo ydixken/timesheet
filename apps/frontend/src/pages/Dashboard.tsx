@@ -16,9 +16,18 @@ import {
 import type { DashboardResponse } from '@timesheet/shared'
 import { computeBudgetStatus, budgetLevelColors } from '@timesheet/shared'
 import { api } from '../api/client'
-import { formatDecimalHours } from '../lib/time'
+import { formatDecimalHours, formatLocalDate } from '../lib/time'
 
-type Range = 'today' | 'this_week' | 'last_week' | 'this_month' | 'last_month' | 'last_3_months' | 'last_6_months'
+type Range =
+  | 'today'
+  | 'this_week'
+  | 'last_week'
+  | 'this_month'
+  | 'last_month'
+  | 'last_3_months'
+  | 'last_6_months'
+  | 'current_year'
+  | 'custom'
 
 const RANGE_OPTIONS: { value: Range; label: string }[] = [
   { value: 'today', label: 'Today' },
@@ -28,6 +37,8 @@ const RANGE_OPTIONS: { value: Range; label: string }[] = [
   { value: 'last_month', label: 'Last Month' },
   { value: 'last_3_months', label: 'Last 3 Months' },
   { value: 'last_6_months', label: 'Last 6 Months' },
+  { value: 'current_year', label: 'This Year' },
+  { value: 'custom', label: 'Custom' },
 ]
 
 const CHART_TEXT = '#b3b1ad'
@@ -35,8 +46,8 @@ const CHART_GRID = '#2a2a3e'
 const CHART_GREEN = '#39ff14'
 const FALLBACK_COLORS = ['#39ff14', '#00d9ff', '#bd93f9', '#f1fa8c', '#ff5555', '#2ed573', '#50fa7b']
 
-function formatEuro(cents: number): string {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(cents)
+function formatEuro(value: number): string {
+  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value)
 }
 
 function formatDayLabel(dateStr: string): string {
@@ -44,30 +55,40 @@ function formatDayLabel(dateStr: string): string {
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
 
+function firstOfMonthStr(): string {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`
+}
+
 export function Dashboard() {
   const [range, setRange] = useState<Range>('this_week')
+  const [customStart, setCustomStart] = useState<string>(firstOfMonthStr())
+  const [customEnd, setCustomEnd] = useState<string>(formatLocalDate(new Date()))
   const [data, setData] = useState<DashboardResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [editingTarget, setEditingTarget] = useState(false)
   const [targetInput, setTargetInput] = useState('')
+  const [editingThreshold, setEditingThreshold] = useState(false)
+  const [thresholdInput, setThresholdInput] = useState('')
 
-  const fetchDashboard = useCallback(async (r: Range) => {
+  const fetchDashboard = useCallback(async (r: Range, s: string, e: string) => {
     setLoading(true)
     setError(null)
     try {
-      const result = await api.get<DashboardResponse>(`/dashboard?range=${r}`)
+      const qs = r === 'custom' ? `?range=custom&start=${s}&end=${e}` : `?range=${r}`
+      const result = await api.get<DashboardResponse>(`/dashboard${qs}`)
       setData(result)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to load dashboard')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load dashboard')
     } finally {
       setLoading(false)
     }
   }, [])
 
   useEffect(() => {
-    fetchDashboard(range)
-  }, [range, fetchDashboard])
+    fetchDashboard(range, customStart, customEnd)
+  }, [range, customStart, customEnd, fetchDashboard])
 
   const handleTargetSave = useCallback(async () => {
     const num = parseFloat(targetInput)
@@ -75,21 +96,33 @@ export function Dashboard() {
     try {
       await api.put('/settings/monthlyRevenueTarget', { value: String(num) })
       setEditingTarget(false)
-      fetchDashboard(range)
+      fetchDashboard(range, customStart, customEnd)
     } catch {
       // keep editing state open so user can retry
     }
-  }, [targetInput, range, fetchDashboard])
+  }, [targetInput, range, customStart, customEnd, fetchDashboard])
+
+  const handleThresholdSave = useCallback(async () => {
+    const num = parseInt(thresholdInput, 10)
+    if (isNaN(num) || num < 1) return
+    try {
+      await api.put('/settings/chartWeekThresholdMonths', { value: String(num) })
+      setEditingThreshold(false)
+      fetchDashboard(range, customStart, customEnd)
+    } catch {
+      // keep editing state open so user can retry
+    }
+  }, [thresholdInput, range, customStart, customEnd, fetchDashboard])
 
   // Build stacked bar chart data
   const allProjectNames = data
-    ? [...new Set(data.dailySeries.flatMap((d) => d.projects.map((p) => p.projectName)))]
+    ? [...new Set(data.series.flatMap((d) => d.projects.map((p) => p.projectName)))]
     : []
 
   const projectColorMap: Record<string, string> = {}
   if (data) {
-    for (const day of data.dailySeries) {
-      for (const p of day.projects) {
+    for (const bucket of data.series) {
+      for (const p of bucket.projects) {
         if (!projectColorMap[p.projectName]) {
           projectColorMap[p.projectName] = p.color
         }
@@ -98,9 +131,9 @@ export function Dashboard() {
   }
 
   const barData = data
-    ? data.dailySeries.map((day) => {
-        const row: Record<string, string | number> = { date: formatDayLabel(day.date) }
-        for (const p of day.projects) {
+    ? data.series.map((bucket) => {
+        const row: Record<string, string | number> = { date: formatDayLabel(bucket.date) }
+        for (const p of bucket.projects) {
           row[p.projectName] = +((p.minutes / 60) * p.hourlyRate).toFixed(2)
           row[`_hours_${p.projectName}`] = +(p.minutes / 60).toFixed(2)
         }
@@ -132,7 +165,7 @@ export function Dashboard() {
       </h1>
 
       {/* Range selector */}
-      <div className="flex items-center gap-2 mb-6">
+      <div className="flex flex-wrap items-center gap-2 mb-4">
         {RANGE_OPTIONS.map((opt) => (
           <button
             key={opt.value}
@@ -147,6 +180,32 @@ export function Dashboard() {
           </button>
         ))}
       </div>
+
+      {/* Custom date range inputs */}
+      {range === 'custom' && (
+        <div className="flex flex-wrap items-end gap-4 mb-6">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-terminal-text font-mono">Start</label>
+            <input
+              type="date"
+              value={customStart}
+              max={customEnd || undefined}
+              onChange={(e) => setCustomStart(e.target.value)}
+              className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-terminal-text font-mono">End</label>
+            <input
+              type="date"
+              value={customEnd}
+              min={customStart || undefined}
+              onChange={(e) => setCustomEnd(e.target.value)}
+              className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green"
+            />
+          </div>
+        </div>
+      )}
 
       {/* Command palette hint */}
       <button
@@ -178,110 +237,153 @@ export function Dashboard() {
             />
           </div>
 
-          {/* Revenue Forecast / Period Summary */}
+          {/* Revenue: month forecast / annual forecast / period summary */}
           {data.revenue.forecast && (() => {
             const f = data.revenue.forecast
+            const hours = formatDecimalHours(data.totalMinutes)
+            const title =
+              f.mode === 'year_forecast'
+                ? 'Annual Forecast'
+                : f.mode === 'month_forecast'
+                  ? 'Monthly Forecast'
+                  : `${f.periodLabel} Summary`
+            const isForecast = f.mode === 'month_forecast' || f.mode === 'year_forecast'
+
             return (
               <div className="bg-terminal-bg-light border border-terminal-border rounded-lg p-4 mb-8">
                 <h2 className="text-terminal-text-bright font-mono text-sm font-bold mb-4">
-                  {f.isPastPeriod ? `${f.periodLabel} Summary` : 'Monthly Forecast'}
+                  {title}
                 </h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {/* Column 1 — Forecast or Period Total */}
-                  <div>
-                    <p className="text-terminal-text font-mono text-xs mb-1">
-                      {f.isPastPeriod ? 'Period Total' : 'Forecast (end of month)'}
-                    </p>
-                    <p className="text-terminal-green font-mono text-2xl font-bold">
-                      {formatEuro(f.isPastPeriod ? f.periodRevenue : f.forecastedMonthEnd)}
-                    </p>
-                    <p className="text-terminal-text font-mono text-xs mt-1">
-                      {formatEuro(f.avgDailyRevenue)}/working day
-                      {' \u00b7 '}
-                      {f.isPastPeriod
-                        ? `${f.workingDaysTotal} working days`
-                        : `${f.workingDaysElapsed}/${f.workingDaysTotal} days elapsed`}
-                    </p>
-                  </div>
+                  {f.mode === 'month_forecast' && (
+                    <>
+                      <Stat
+                        label="Forecast (end of month)"
+                        value={formatEuro(f.forecastValue)}
+                        sub={`${formatEuro(f.avgDailyRevenue)}/working day · ${f.workingDaysElapsed}/${f.workingDaysTotal} days elapsed`}
+                      />
+                      <Stat
+                        label="Earned This Month"
+                        value={formatEuro(f.earnedToDate)}
+                        color="text-terminal-blue"
+                      />
+                      {/* Editable monthly target */}
+                      <div>
+                        <p className="text-terminal-text font-mono text-xs mb-1">Monthly Target</p>
+                        {editingTarget ? (
+                          <form
+                            onSubmit={(e) => {
+                              e.preventDefault()
+                              handleTargetSave()
+                            }}
+                            className="flex items-center gap-2"
+                          >
+                            <input
+                              type="number"
+                              autoFocus
+                              step={100}
+                              min={0}
+                              value={targetInput}
+                              onChange={(e) => setTargetInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Escape') setEditingTarget(false)
+                              }}
+                              onBlur={() => setEditingTarget(false)}
+                              className="w-32 bg-terminal-bg border border-terminal-border rounded px-2 py-1 text-terminal-text-bright font-mono text-lg focus:border-terminal-green focus:outline-none"
+                            />
+                            <span className="text-terminal-text font-mono text-sm">EUR</span>
+                          </form>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setTargetInput(f.monthlyTarget != null ? String(f.monthlyTarget) : '')
+                              setEditingTarget(true)
+                            }}
+                            className="text-terminal-text-bright font-mono text-2xl font-bold hover:text-terminal-green transition-colors cursor-pointer"
+                          >
+                            {f.monthlyTarget != null ? formatEuro(f.monthlyTarget) : '[set target]'}
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  )}
 
-                  {/* Column 2 — Period Revenue or Earned This Month */}
-                  <div>
-                    <p className="text-terminal-text font-mono text-xs mb-1">
-                      {f.isPastPeriod ? 'Avg Daily Revenue' : 'Earned This Month'}
-                    </p>
-                    <p className="text-terminal-blue font-mono text-2xl font-bold">
-                      {f.isPastPeriod
-                        ? formatEuro(f.avgDailyRevenue)
-                        : formatEuro(data.revenue.earnedThisMonth)}
-                    </p>
-                    {f.isPastPeriod && (
-                      <p className="text-terminal-text font-mono text-xs mt-1">
-                        across {f.workingDaysTotal} working days
-                      </p>
-                    )}
-                  </div>
+                  {f.mode === 'year_forecast' && (
+                    <>
+                      <Stat
+                        label="Forecast (end of year)"
+                        value={formatEuro(f.forecastValue)}
+                        sub={`${formatEuro(f.avgDailyRevenue)}/working day · ${f.workingDaysElapsed}/${f.workingDaysTotal} days elapsed`}
+                      />
+                      <Stat
+                        label="Earned YTD"
+                        value={formatEuro(f.earnedToDate)}
+                        color="text-terminal-blue"
+                      />
+                      <Stat
+                        label="Annual Target"
+                        value={f.target != null ? formatEuro(f.target) : '—'}
+                        sub={f.target != null ? 'monthly target × 12' : 'set a monthly target on This Month'}
+                        color="text-terminal-text-bright"
+                      />
+                    </>
+                  )}
 
-                  {/* Column 3 — Monthly Target (only for current periods) */}
-                  <div>
-                    <p className="text-terminal-text font-mono text-xs mb-1">
-                      Monthly Target
-                    </p>
-                    {f.isPastPeriod ? (
-                      <p className="text-terminal-text font-mono text-2xl font-bold">
-                        {f.monthlyTarget != null ? formatEuro(f.monthlyTarget) : '--'}
-                      </p>
-                    ) : editingTarget ? (
-                      <form
-                        onSubmit={(e) => {
-                          e.preventDefault()
-                          handleTargetSave()
-                        }}
-                        className="flex items-center gap-2"
-                      >
-                        <input
-                          type="number"
-                          autoFocus
-                          step={100}
-                          min={0}
-                          value={targetInput}
-                          onChange={(e) => setTargetInput(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Escape') setEditingTarget(false)
-                          }}
-                          onBlur={() => setEditingTarget(false)}
-                          className="w-32 bg-terminal-bg border border-terminal-border rounded px-2 py-1 text-terminal-text-bright font-mono text-lg focus:border-terminal-green focus:outline-none"
-                        />
-                        <span className="text-terminal-text font-mono text-sm">EUR</span>
-                      </form>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTargetInput(
-                            f.monthlyTarget != null ? String(f.monthlyTarget) : ''
-                          )
-                          setEditingTarget(true)
-                        }}
-                        className="text-terminal-text-bright font-mono text-2xl font-bold hover:text-terminal-green transition-colors cursor-pointer"
-                      >
-                        {f.monthlyTarget != null
-                          ? formatEuro(f.monthlyTarget)
-                          : '[set target]'}
-                      </button>
-                    )}
-                  </div>
+                  {f.mode === 'summary' && f.monthsInPeriod >= 2 && (
+                    <>
+                      <Stat
+                        label="Period Total"
+                        value={formatEuro(f.periodRevenue)}
+                        sub={`${f.workingDaysTotal} working days`}
+                      />
+                      <Stat
+                        label="Avg / Month"
+                        value={formatEuro(f.avgMonthlyRevenue)}
+                        sub={`over ${f.monthsInPeriod} months`}
+                        color="text-terminal-blue"
+                      />
+                      <Stat
+                        label="Avg / Working Day"
+                        value={formatEuro(f.avgDailyRevenue)}
+                        sub={`${hours}h tracked`}
+                        color="text-terminal-text-bright"
+                      />
+                    </>
+                  )}
+
+                  {f.mode === 'summary' && f.monthsInPeriod < 2 && (
+                    <>
+                      <Stat
+                        label="Period Total"
+                        value={formatEuro(f.periodRevenue)}
+                        sub={`${f.workingDaysTotal} working days`}
+                      />
+                      <Stat
+                        label="Avg / Working Day"
+                        value={formatEuro(f.avgDailyRevenue)}
+                        sub={`${hours}h tracked`}
+                        color="text-terminal-blue"
+                      />
+                      <Stat
+                        label="Hours Tracked"
+                        value={`${hours}h`}
+                        color="text-terminal-text-bright"
+                      />
+                    </>
+                  )}
                 </div>
 
-                {/* Progress bar — only for current periods with a target set */}
-                {!f.isPastPeriod &&
-                  f.monthlyTarget != null &&
+                {/* Target progress — forecast modes with a target set */}
+                {isForecast &&
+                  f.target != null &&
                   f.targetProgress != null && (() => {
                     let colorText = 'text-terminal-danger'
                     let colorBg = 'bg-terminal-danger'
                     let paceLabel = 'Behind Target'
 
-                    if (f.forecastedMonthEnd >= f.monthlyTarget) {
+                    if (f.forecastValue >= f.target) {
                       colorText = 'text-terminal-green'
                       colorBg = 'bg-terminal-green'
                       paceLabel = 'On Track'
@@ -316,9 +418,46 @@ export function Dashboard() {
           <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
             {/* Stacked bar chart */}
             <div className="lg:col-span-3 bg-terminal-bg-light border border-terminal-border rounded-lg p-4">
-              <h2 className="text-terminal-text-bright font-mono text-sm font-bold mb-4">
-                Revenue per Day
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-terminal-text-bright font-mono text-sm font-bold">
+                  {data.granularity === 'week' ? 'Revenue per Week' : 'Revenue per Day'}
+                </h2>
+                <div className="flex items-center gap-1 font-mono text-xs text-terminal-text/60">
+                  <span>weekly after</span>
+                  {editingThreshold ? (
+                    <input
+                      type="number"
+                      autoFocus
+                      min={1}
+                      step={1}
+                      value={thresholdInput}
+                      onChange={(e) => setThresholdInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault()
+                          handleThresholdSave()
+                        } else if (e.key === 'Escape') {
+                          setEditingThreshold(false)
+                        }
+                      }}
+                      onBlur={() => setEditingThreshold(false)}
+                      className="w-12 bg-terminal-bg border border-terminal-border rounded px-1 py-0.5 text-center text-terminal-text-bright focus:border-terminal-green focus:outline-none"
+                    />
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setThresholdInput(String(data.chartWeekThresholdMonths))
+                        setEditingThreshold(true)
+                      }}
+                      className="text-terminal-green hover:underline cursor-pointer"
+                    >
+                      {data.chartWeekThresholdMonths}
+                    </button>
+                  )}
+                  <span>mo</span>
+                </div>
+              </div>
               {barData.length > 0 ? (
                 <ResponsiveContainer width="100%" height={260}>
                   <BarChart data={barData}>
@@ -500,6 +639,26 @@ export function Dashboard() {
           </div>
         </>
       ) : null}
+    </div>
+  )
+}
+
+function Stat({
+  label,
+  value,
+  sub,
+  color = 'text-terminal-green',
+}: {
+  label: string
+  value: string
+  sub?: string
+  color?: string
+}) {
+  return (
+    <div>
+      <p className="text-terminal-text font-mono text-xs mb-1">{label}</p>
+      <p className={`${color} font-mono text-2xl font-bold`}>{value}</p>
+      {sub && <p className="text-terminal-text font-mono text-xs mt-1">{sub}</p>}
     </div>
   )
 }
