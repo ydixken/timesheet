@@ -5,11 +5,22 @@ import { useProjects } from '../hooks/useProjects'
 import { useClients } from '../hooks/useClients'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { Card } from '../components/ui/Card'
+import { Badge } from '../components/ui/Badge'
+import { Select } from '../components/ui/Select'
+import { SegmentedControl } from '../components/ui/SegmentedControl'
+import { SkeletonCard } from '../components/ui/Skeleton'
+import { EmptyState } from '../components/ui/EmptyState'
 import { ZipExportModal } from '../components/ZipExportModal'
-import { formatDecimalHours } from '../lib/time'
 
 type ProjectWithClient = Project & { clientName: string | null }
 type Filter = 'all' | 'active' | 'archived'
+
+const FILTERS: { value: Filter; label: string }[] = [
+  { value: 'all', label: 'All' },
+  { value: 'active', label: 'Active' },
+  { value: 'archived', label: 'Archived' },
+]
 
 function formatEuro(amount: number): string {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount)
@@ -23,7 +34,6 @@ export function Projects() {
   const [filter, setFilter] = useState<Filter>('all')
   const [showCreate, setShowCreate] = useState(false)
   const [showZipExport, setShowZipExport] = useState(false)
-  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     fetchProjects(filter)
@@ -48,23 +58,22 @@ export function Projects() {
   })
 
   const handleCreate = async (data: CreateProjectInput) => {
-    setError(null)
     try {
       await create(data)
       setShowCreate(false)
       fetchProjects(filter)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to create project')
+    } catch {
+      // failure is already surfaced via a toast from the projects store
     }
   }
 
   return (
-    <div>
-      <div className="flex items-center justify-between mb-6">
+    <div className="animate-fade-in">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <h1 className="page-heading text-2xl font-bold text-terminal-text-bright font-mono">
           projects
         </h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button variant="outline" onClick={() => setShowZipExport(true)}>
             [export month]
           </Button>
@@ -75,25 +84,15 @@ export function Projects() {
       </div>
 
       {/* Filter */}
-      <div className="flex items-center gap-2 mb-6">
-        {(['all', 'active', 'archived'] as Filter[]).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded font-mono text-sm transition-all duration-150 cursor-pointer border capitalize ${
-              filter === f
-                ? 'bg-terminal-green text-terminal-bg border-terminal-green'
-                : 'border-terminal-border text-terminal-text hover:border-terminal-green hover:text-terminal-green'
-            }`}
-          >
-            {f}
-          </button>
-        ))}
+      <div className="mb-6">
+        <SegmentedControl
+          options={FILTERS}
+          value={filter}
+          onChange={(v) => setFilter(v as Filter)}
+        />
       </div>
 
-      {error && <p className="text-terminal-danger font-mono text-sm mb-4">{error}</p>}
-
-      {/* Create modal */}
+      {/* Create form (inline) */}
       {showCreate && (
         <CreateProjectForm
           clients={clients}
@@ -104,9 +103,17 @@ export function Projects() {
 
       {/* Project cards */}
       {loading && projects.length === 0 ? (
-        <p className="text-terminal-text font-mono text-sm">Loading...</p>
+        <div className="space-y-3">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
       ) : filtered.length === 0 ? (
-        <p className="text-terminal-text font-mono text-sm">No projects found.</p>
+        <EmptyState
+          prompt="no projects"
+          message="Create a project to start tracking time and revenue against it."
+          action={{ label: '+ new', onClick: () => setShowCreate(true) }}
+        />
       ) : (
         <div className="space-y-3">
           {filtered.map((project) => (
@@ -138,9 +145,10 @@ function ProjectCard({
   const budget = project.estimatedHours ? parseFloat(project.estimatedHours) : null
 
   return (
-    <div
+    <Card
+      interactive
       onClick={onClick}
-      className="bg-terminal-bg-light border border-terminal-border rounded-lg p-4 cursor-pointer hover:border-terminal-green transition-colors"
+      className="focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-green/60 active:translate-y-px"
     >
       <div className="flex items-start justify-between gap-4">
         <div className="flex-1 min-w-0">
@@ -160,7 +168,7 @@ function ProjectCard({
               </span>
             )}
             {rate !== null ? (
-              <span className="text-terminal-green font-mono text-sm">
+              <span className="text-terminal-green font-data text-sm">
                 {formatEuro(rate)}/h
               </span>
             ) : (
@@ -168,35 +176,23 @@ function ProjectCard({
             )}
           </div>
           <div className="flex items-center gap-2 mt-2">
-            <span
-              className={`px-2 py-0.5 rounded text-xs font-mono border ${
-                project.active
-                  ? 'text-terminal-green border-terminal-green'
-                  : 'text-terminal-text border-terminal-border'
-              }`}
-            >
+            <Badge variant={project.active ? 'success' : 'muted'}>
               {project.active ? 'Active' : 'Archived'}
-            </span>
-            <span
-              className={`px-2 py-0.5 rounded text-xs font-mono border ${
-                project.billable
-                  ? 'text-terminal-blue border-terminal-blue'
-                  : 'text-terminal-text border-terminal-border'
-              }`}
-            >
+            </Badge>
+            <Badge variant={project.billable ? 'info' : 'muted'}>
               {project.billable ? 'Billable' : 'Not billable'}
-            </span>
+            </Badge>
           </div>
         </div>
         {budget !== null && (
           <div className="text-right shrink-0 min-w-[140px]">
             <p className="text-terminal-text font-mono text-xs mb-1">
-              Budget: {budget}h
+              Budget: <span className="font-data text-terminal-text-bright">{budget}h</span>
             </p>
           </div>
         )}
       </div>
-    </div>
+    </Card>
   )
 }
 
@@ -248,12 +244,12 @@ function CreateProjectForm({
   }
 
   return (
-    <div className="bg-terminal-bg-light border border-terminal-green rounded-lg p-4 mb-6">
-      <h2 className="text-terminal-text-bright font-mono text-sm font-bold mb-4">
-        New Project
-      </h2>
+    <Card accent className="mb-6 animate-fade-in">
+      <div className="text-label-caps text-terminal-text-muted text-xs tracking-[0.08em] mb-4">
+        <span className="text-terminal-green">$ </span>new project
+      </div>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="Name"
             value={name}
@@ -261,21 +257,19 @@ function CreateProjectForm({
             placeholder="Project name"
             autoFocus
           />
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-terminal-text-bright font-mono">Client</label>
-            <select
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green focus:ring-1 focus:ring-terminal-green/30"
-            >
-              <option value="">No client</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            label="Client"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            className="w-full"
+          >
+            <option value="">No client</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
           <div className="flex flex-col gap-1">
             <label className="text-sm text-terminal-text-bright font-mono">Color</label>
             <div className="flex items-center gap-2">
@@ -332,20 +326,18 @@ function CreateProjectForm({
               </label>
             </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-terminal-text-bright font-mono">Time Rounding</label>
-            <select
-              value={roundingMin}
-              onChange={(e) => setRoundingMin(e.target.value)}
-              className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green focus:ring-1 focus:ring-terminal-green/30"
-            >
-              <option value="">No rounding</option>
-              <option value="5">5 min</option>
-              <option value="10">10 min</option>
-              <option value="15">15 min (quarter hour)</option>
-              <option value="30">30 min (half hour)</option>
-            </select>
-          </div>
+          <Select
+            label="Time Rounding"
+            value={roundingMin}
+            onChange={(e) => setRoundingMin(e.target.value)}
+            className="w-full"
+          >
+            <option value="">No rounding</option>
+            <option value="5">5 min</option>
+            <option value="10">10 min</option>
+            <option value="15">15 min (quarter hour)</option>
+            <option value="30">30 min (half hour)</option>
+          </Select>
         </div>
         {formError && <p className="text-terminal-danger font-mono text-sm">{formError}</p>}
         <div className="flex items-center gap-2">
@@ -357,6 +349,6 @@ function CreateProjectForm({
           </Button>
         </div>
       </form>
-    </div>
+    </Card>
   )
 }

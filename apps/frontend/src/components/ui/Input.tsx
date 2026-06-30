@@ -12,7 +12,7 @@ export function Input({ label, error, className = '', ...props }: InputProps) {
         <label className="text-sm text-terminal-text-bright font-mono">{label}</label>
       )}
       <input
-        className={`bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green focus:ring-1 focus:ring-terminal-green/30 placeholder:text-terminal-text/50 ${error ? 'border-terminal-danger' : ''} ${className}`}
+        className={`bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green focus:ring-1 focus:ring-terminal-green/30 placeholder:text-terminal-text-muted ${error ? 'border-terminal-danger' : ''} ${className}`}
         {...props}
       />
       {error && <span className="text-xs text-terminal-danger">{error}</span>}

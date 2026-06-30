@@ -21,7 +21,7 @@ export function DayColumnHeader({ dateStr, totalMinutes, isToday, isWeekend }: D
         {dayMonth}
       </div>
       {totalMinutes > 0 && (
-        <div className="text-terminal-text/60 text-[10px] font-mono mt-0.5">
+        <div className="text-terminal-text-muted text-[10px] font-mono mt-0.5">
           {formatDuration(totalMinutes)}
         </div>
       )}

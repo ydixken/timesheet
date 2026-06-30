@@ -1,4 +1,5 @@
 import { Button } from '../ui/Button'
+import { Icon } from '../ui/Icon'
 
 interface DateNavigationProps {
   onPrev: () => void
@@ -9,17 +10,31 @@ interface DateNavigationProps {
 
 export function DateNavigation({ onPrev, onNext, onToday, label }: DateNavigationProps) {
   return (
-    <div className="flex items-center gap-2">
-      <Button variant="outline" onClick={onPrev} className="px-2 py-1 text-xs">
-        &#9664;
+    <div className="flex items-center justify-between gap-2 sm:justify-start">
+      <Button
+        variant="outline"
+        onClick={onPrev}
+        aria-label="Previous"
+        className="tap-target inline-flex items-center justify-center px-2 py-1"
+      >
+        <Icon name="chevron-right" className="rotate-180" />
       </Button>
-      <span className="text-terminal-text-bright font-mono text-sm min-w-[12rem] text-center">
+      <span className="flex-1 text-center text-terminal-text-bright font-mono text-sm sm:flex-none sm:min-w-[12rem]">
         {label}
       </span>
-      <Button variant="outline" onClick={onNext} className="px-2 py-1 text-xs">
-        &#9654;
+      <Button
+        variant="outline"
+        onClick={onNext}
+        aria-label="Next"
+        className="tap-target inline-flex items-center justify-center px-2 py-1"
+      >
+        <Icon name="chevron-right" />
       </Button>
-      <Button variant="outline" onClick={onToday} className="px-2 py-1 text-xs ml-2">
+      <Button
+        variant="outline"
+        onClick={onToday}
+        className="tap-target px-3 py-1 text-xs sm:ml-2"
+      >
         today
       </Button>
     </div>

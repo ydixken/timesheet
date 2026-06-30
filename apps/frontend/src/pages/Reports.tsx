@@ -14,7 +14,23 @@ import {
 import { api } from '../api/client'
 import { useProjects } from '../hooks/useProjects'
 import { Button } from '../components/ui/Button'
+import { Card } from '../components/ui/Card'
+import { SegmentedControl } from '../components/ui/SegmentedControl'
+import { Select } from '../components/ui/Select'
+import { Badge } from '../components/ui/Badge'
+import { ProgressBar } from '../components/ui/ProgressBar'
+import { StatCard } from '../components/ui/StatCard'
+import { ProjectBadge } from '../components/ProjectBadge'
+import { Skeleton, SkeletonCard } from '../components/ui/Skeleton'
+import { EmptyState } from '../components/ui/EmptyState'
+import { ErrorState } from '../components/ui/ErrorState'
+import { chart, axisTick, gridProps, barCursor } from '../lib/chart-theme'
+import { ChartTooltip } from '../components/charts/ChartTooltip'
+import { toast } from '../store/toasts'
 import { formatDecimalHours, formatLocalDate } from '../lib/time'
+
+// Opacity for the faded "total" bar that sits behind the solid "billable" bar.
+const BAR_FADED_OPACITY = 0.4
 
 interface SummaryGroup {
   id: string
@@ -69,9 +85,9 @@ function formatShortDate(dateStr: string): string {
 }
 
 function formatTimeRange(start: string | null, end: string | null): string {
-  if (!start || !end) return '\u2014'
+  if (!start || !end) return '—'
   const fmt = (t: string) => t.slice(0, 5)
-  return `${fmt(start)}\u2013${fmt(end)}`
+  return `${fmt(start)}–${fmt(end)}`
 }
 
 export function Reports() {
@@ -84,6 +100,7 @@ export function Reports() {
   const [summary, setSummary] = useState<SummaryResponse | null>(null)
   const [detailed, setDetailed] = useState<DetailedResponse | null>(null)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
 
   const [sortKey, setSortKey] = useState<SortKey>('date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
@@ -96,6 +113,7 @@ export function Reports() {
 
   const fetchSummary = useCallback(async () => {
     setLoading(true)
+    setError(false)
     try {
       const data = await api.get<SummaryResponse>(
         `/reports/summary?start=${startDate}&end=${endDate}&groupBy=${groupBy}`
@@ -103,6 +121,7 @@ export function Reports() {
       setSummary(data)
     } catch {
       setSummary(null)
+      setError(true)
     } finally {
       setLoading(false)
     }
@@ -110,6 +129,7 @@ export function Reports() {
 
   const fetchDetailed = useCallback(async () => {
     setLoading(true)
+    setError(false)
     try {
       const params = new URLSearchParams({ start: startDate, end: endDate })
       if (projectFilter) params.set('projectId', projectFilter)
@@ -117,15 +137,20 @@ export function Reports() {
       setDetailed(data)
     } catch {
       setDetailed(null)
+      setError(true)
     } finally {
       setLoading(false)
     }
   }, [startDate, endDate, projectFilter])
 
-  useEffect(() => {
+  const refetch = useCallback(() => {
     if (tab === 'summary') fetchSummary()
     else fetchDetailed()
   }, [tab, fetchSummary, fetchDetailed])
+
+  useEffect(() => {
+    refetch()
+  }, [refetch])
 
   const sortedEntries = useMemo(() => {
     if (!detailed) return []
@@ -164,9 +189,13 @@ export function Reports() {
   }
 
   function handleExportCsv() {
-    const params = new URLSearchParams({ start: startDate, end: endDate })
-    if (projectFilter) params.set('projectId', projectFilter)
-    window.location.href = `/api/reports/export/csv?${params}`
+    try {
+      const params = new URLSearchParams({ start: startDate, end: endDate })
+      if (projectFilter) params.set('projectId', projectFilter)
+      window.location.href = `/api/reports/export/csv?${params}`
+    } catch {
+      toast({ variant: 'danger', message: 'CSV export failed' })
+    }
   }
 
   const maxMinutes = useMemo(() => {
@@ -195,8 +224,11 @@ export function Reports() {
 
   const sortArrow = (key: SortKey) => {
     if (sortKey !== key) return ''
-    return sortDir === 'asc' ? ' \u25B2' : ' \u25BC'
+    return sortDir === 'asc' ? ' ▲' : ' ▼'
   }
+
+  const dateInputClass =
+    'bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm transition-colors duration-150 focus:outline-none focus:border-terminal-green focus:ring-1 focus:ring-terminal-green/30'
 
   return (
     <div>
@@ -205,64 +237,58 @@ export function Reports() {
       </h1>
 
       {/* Tab navigation */}
-      <div className="flex gap-6 mb-6 border-b border-terminal-border">
-        {(['summary', 'detailed'] as const).map((t) => (
-          <button
-            key={t}
-            onClick={() => setTab(t)}
-            className={`pb-2 font-mono text-sm capitalize transition-colors cursor-pointer ${
-              tab === t
-                ? 'text-terminal-green border-b-2 border-terminal-green'
-                : 'text-terminal-text hover:text-terminal-text-bright'
-            }`}
-          >
-            {t}
-          </button>
-        ))}
+      <div className="mb-6">
+        <SegmentedControl
+          options={[
+            { value: 'summary', label: 'Summary' },
+            { value: 'detailed', label: 'Detailed' },
+          ]}
+          value={tab}
+          onChange={(v) => setTab(v as Tab)}
+        />
       </div>
 
       {/* Filter bar */}
-      <div className="bg-terminal-bg-light border border-terminal-border rounded p-4 mb-6 flex flex-wrap items-end gap-4">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-terminal-text font-mono">Start</label>
-          <input
-            type="date"
-            value={startDate}
-            onChange={(e) => setStartDate(e.target.value)}
-            className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-terminal-text font-mono">End</label>
-          <input
-            type="date"
-            value={endDate}
-            onChange={(e) => setEndDate(e.target.value)}
-            className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green"
-          />
-        </div>
-
-        {tab === 'summary' && (
+      <Card className="mb-6">
+        <div className="flex flex-wrap items-end gap-4">
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-terminal-text font-mono">Group by</label>
-            <select
+            <label className="text-sm text-terminal-text-bright font-mono">Start</label>
+            <input
+              type="date"
+              value={startDate}
+              max={endDate || undefined}
+              onChange={(e) => setStartDate(e.target.value)}
+              className={dateInputClass}
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-sm text-terminal-text-bright font-mono">End</label>
+            <input
+              type="date"
+              value={endDate}
+              min={startDate || undefined}
+              onChange={(e) => setEndDate(e.target.value)}
+              className={dateInputClass}
+            />
+          </div>
+
+          {tab === 'summary' && (
+            <Select
+              label="Group by"
               value={groupBy}
               onChange={(e) => setGroupBy(e.target.value as GroupBy)}
-              className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green cursor-pointer"
-            >
-              <option value="project">Project</option>
-              <option value="client">Client</option>
-            </select>
-          </div>
-        )}
+              options={[
+                { value: 'project', label: 'Project' },
+                { value: 'client', label: 'Client' },
+              ]}
+            />
+          )}
 
-        {tab === 'detailed' && (
-          <div className="flex flex-col gap-1">
-            <label className="text-xs text-terminal-text font-mono">Project</label>
-            <select
+          {tab === 'detailed' && (
+            <Select
+              label="Project"
               value={projectFilter}
               onChange={(e) => setProjectFilter(e.target.value)}
-              className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green cursor-pointer"
             >
               <option value="">All projects</option>
               {projects.map((p) => (
@@ -270,289 +296,346 @@ export function Reports() {
                   {p.name}
                 </option>
               ))}
-            </select>
-          </div>
-        )}
+            </Select>
+          )}
 
-        <div className="ml-auto">
-          <Button variant="outline" onClick={handleExportCsv}>
-            Export CSV
-          </Button>
-        </div>
-      </div>
-
-      {loading && (
-        <p className="text-terminal-text font-mono text-sm animate-pulse">Loading...</p>
-      )}
-
-      {/* Summary tab */}
-      {tab === 'summary' && summary && !loading && (
-        <div>
-          {/* Totals header */}
-          <div className="mb-6 font-mono text-sm text-terminal-text-bright">
-            Total:{' '}
-            <span className="text-terminal-green">{formatDecimalHours(summary.totalMinutes)}h</span>
-            {' '}(Billable:{' '}
-            <span className="text-terminal-blue">
-              {formatDecimalHours(summary.billableMinutes)}h
-            </span>
-            )
-          </div>
-
-          {/* Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-            {/* Bar chart */}
-            <div className="lg:col-span-2 bg-terminal-bg-light border border-terminal-border rounded p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-xs text-terminal-text font-mono uppercase tracking-wider">
-                  Hours by {groupBy}
-                </h3>
-                <span className="text-[10px] text-terminal-text font-mono">
-                  faded = total &middot; solid = billable
-                </span>
-              </div>
-              <ResponsiveContainer width="100%" height={260}>
-                <BarChart data={barData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#2a2a3e" />
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fill: '#b3b1ad', fontSize: 12, fontFamily: 'JetBrains Mono' }}
-                    axisLine={{ stroke: '#2a2a3e' }}
-                    tickLine={false}
-                  />
-                  <YAxis
-                    tick={{ fill: '#b3b1ad', fontSize: 12, fontFamily: 'JetBrains Mono' }}
-                    axisLine={{ stroke: '#2a2a3e' }}
-                    tickLine={false}
-                    unit="h"
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#151b24',
-                      border: '1px solid #2a2a3e',
-                      borderRadius: '4px',
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: '12px',
-                    }}
-                    labelStyle={{ color: '#e6e1dc' }}
-                    itemStyle={{ color: '#b3b1ad' }}
-                  />
-                  <Bar dataKey="hours" name="Total" radius={[4, 4, 0, 0]}>
-                    {barData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} fillOpacity={0.7} />
-                    ))}
-                  </Bar>
-                  <Bar dataKey="billable" name="Billable" radius={[4, 4, 0, 0]}>
-                    {barData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-
-            {/* Donut chart */}
-            <div className="bg-terminal-bg-light border border-terminal-border rounded p-4">
-              <h3 className="text-xs text-terminal-text font-mono mb-3 uppercase tracking-wider">
-                Distribution
-              </h3>
-              <ResponsiveContainer width="100%" height={260}>
-                <PieChart>
-                  <Pie
-                    data={pieData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={55}
-                    outerRadius={90}
-                    paddingAngle={2}
-                    dataKey="value"
-                    stroke="none"
-                  >
-                    {pieData.map((entry, i) => (
-                      <Cell key={i} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: '#151b24',
-                      border: '1px solid #2a2a3e',
-                      borderRadius: '4px',
-                      fontFamily: 'JetBrains Mono',
-                      fontSize: '12px',
-                    }}
-                    formatter={(value: number) => [`${(value / 60).toFixed(2)}h`, 'Hours']}
-                  />
-                </PieChart>
-              </ResponsiveContainer>
-            </div>
-          </div>
-
-          {/* Summary table */}
-          <div className="border border-terminal-border rounded overflow-hidden">
-            <table className="w-full text-sm font-mono">
-              <thead>
-                <tr className="bg-terminal-surface text-terminal-text text-left">
-                  <th className="px-4 py-3">Name</th>
-                  <th className="px-4 py-3 text-right">Hours</th>
-                  <th className="px-4 py-3 text-right">Billable</th>
-                  <th className="px-4 py-3 text-right">Entries</th>
-                  <th className="px-4 py-3 w-48"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.groups.map((g) => (
-                  <tr
-                    key={g.id}
-                    className="border-t border-terminal-border bg-terminal-bg-light hover:border-l-2 hover:border-l-terminal-green transition-colors"
-                  >
-                    <td className="px-4 py-3 text-terminal-text-bright flex items-center gap-2">
-                      <span
-                        className="inline-block w-2.5 h-2.5 rounded-full"
-                        style={{ backgroundColor: g.color }}
-                      />
-                      {g.name}
-                    </td>
-                    <td className="px-4 py-3 text-right text-terminal-text-bright">
-                      {formatDecimalHours(g.totalMinutes)}h
-                    </td>
-                    <td className="px-4 py-3 text-right text-terminal-blue">
-                      {formatDecimalHours(g.billableMinutes)}h
-                    </td>
-                    <td className="px-4 py-3 text-right text-terminal-text">{g.entries}</td>
-                    <td className="px-4 py-3">
-                      <div className="w-full bg-terminal-surface rounded-full h-2">
-                        <div
-                          className="h-2 rounded-full transition-all"
-                          style={{
-                            width: `${(g.totalMinutes / maxMinutes) * 100}%`,
-                            backgroundColor: g.color,
-                          }}
-                        />
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="ml-auto">
+            <Button
+              variant="outline"
+              className="active:translate-y-px"
+              onClick={handleExportCsv}
+            >
+              Export CSV
+            </Button>
           </div>
         </div>
-      )}
+      </Card>
 
-      {/* Detailed tab */}
-      {tab === 'detailed' && detailed && !loading && (
-        <div>
-          <div className="mb-4 font-mono text-sm text-terminal-text-bright">
-            Total:{' '}
-            <span className="text-terminal-green">
-              {formatDecimalHours(detailed.totalMinutes)}h
-            </span>
-            {' '}({detailed.entries.length} entries)
-          </div>
+      {/* Content states */}
+      {loading ? (
+        tab === 'summary' ? (
+          <SummarySkeleton />
+        ) : (
+          <DetailedSkeleton />
+        )
+      ) : error ? (
+        <ErrorState message="Failed to load report data." onRetry={refetch} />
+      ) : tab === 'summary' && summary ? (
+        summary.groups.length === 0 ? (
+          <EmptyState
+            prompt="no data in range"
+            message="No time was tracked for the selected period. Adjust the date range to see a report."
+          />
+        ) : (
+          <div className="animate-fade-in">
+            {/* Totals */}
+            <div className="grid grid-cols-2 gap-4 mb-6 max-w-md">
+              <StatCard
+                label="Total Hours"
+                value={`${formatDecimalHours(summary.totalMinutes)}h`}
+                tone="green"
+              />
+              <StatCard
+                label="Billable Hours"
+                value={`${formatDecimalHours(summary.billableMinutes)}h`}
+                tone="blue"
+              />
+            </div>
 
-          <div className="border border-terminal-border rounded overflow-hidden">
-            <table className="w-full text-sm font-mono">
-              <thead>
-                <tr className="bg-terminal-surface text-terminal-text text-left">
-                  <th
-                    className="px-4 py-3 cursor-pointer hover:text-terminal-text-bright select-none"
-                    onClick={() => handleSort('date')}
-                  >
-                    Date{sortArrow('date')}
-                  </th>
-                  <th
-                    className="px-4 py-3 cursor-pointer hover:text-terminal-text-bright select-none"
-                    onClick={() => handleSort('projectName')}
-                  >
-                    Project{sortArrow('projectName')}
-                  </th>
-                  <th
-                    className="px-4 py-3 cursor-pointer hover:text-terminal-text-bright select-none"
-                    onClick={() => handleSort('description')}
-                  >
-                    Description{sortArrow('description')}
-                  </th>
-                  <th className="px-4 py-3">Time</th>
-                  <th
-                    className="px-4 py-3 text-right cursor-pointer hover:text-terminal-text-bright select-none"
-                    onClick={() => handleSort('durationMin')}
-                  >
-                    Hours{sortArrow('durationMin')}
-                  </th>
-                  <th
-                    className="px-4 py-3 text-center cursor-pointer hover:text-terminal-text-bright select-none"
-                    onClick={() => handleSort('billable')}
-                  >
-                    Billable{sortArrow('billable')}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sortedEntries.map((entry) => (
-                  <tr
-                    key={entry.id}
-                    className="border-t border-terminal-border bg-terminal-bg-light hover:border-l-2 hover:border-l-terminal-green transition-colors"
-                  >
-                    <td className="px-4 py-3 text-terminal-text whitespace-nowrap">
-                      {formatShortDate(entry.date)}
-                    </td>
-                    <td className="px-4 py-3 text-terminal-text-bright whitespace-nowrap">
-                      <span className="inline-flex items-center gap-2">
-                        <span
-                          className="inline-block w-2.5 h-2.5 rounded-full"
-                          style={{ backgroundColor: entry.projectColor }}
+            {/* Charts */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+              {/* Bar chart */}
+              <Card className="lg:col-span-2">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-label-caps text-terminal-text-muted text-xs tracking-[0.08em]">
+                    <span className="text-terminal-green">#</span> hours by {groupBy}
+                  </span>
+                  <span className="hidden sm:inline text-[10px] text-terminal-text-muted font-mono">
+                    faded = total &middot; solid = billable
+                  </span>
+                </div>
+                {barData.length > 0 ? (
+                  <div className="h-[200px] sm:h-[260px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <BarChart data={barData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                        <CartesianGrid {...gridProps} />
+                        <XAxis
+                          dataKey="name"
+                          tick={axisTick}
+                          axisLine={{ stroke: chart.grid }}
+                          tickLine={false}
                         />
-                        {entry.projectName}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-terminal-text max-w-xs truncate">
-                      {entry.description}
-                    </td>
-                    <td className="px-4 py-3 text-terminal-text whitespace-nowrap">
-                      {formatTimeRange(entry.startTime, entry.endTime)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-terminal-text-bright">
-                      {formatDecimalHours(entry.durationMin)}h
-                    </td>
-                    <td className="px-4 py-3 text-center">
-                      {entry.billable ? (
-                        <span className="text-terminal-green">&#10003;</span>
-                      ) : (
-                        <span className="text-terminal-text">&#10007;</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {sortedEntries.length === 0 && (
-                  <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-terminal-text">
-                      No entries found for this period.
-                    </td>
-                  </tr>
+                        <YAxis
+                          tick={axisTick}
+                          axisLine={{ stroke: chart.grid }}
+                          tickLine={false}
+                          unit="h"
+                        />
+                        <Tooltip
+                          cursor={barCursor}
+                          content={<ChartTooltip formatValue={(v) => `${v}h`} />}
+                        />
+                        <Bar dataKey="hours" name="Total" radius={[4, 4, 0, 0]}>
+                          {barData.map((entry, i) => (
+                            <Cell key={i} fill={entry.color} fillOpacity={BAR_FADED_OPACITY} />
+                          ))}
+                        </Bar>
+                        <Bar dataKey="billable" name="Billable" radius={[4, 4, 0, 0]}>
+                          {barData.map((entry, i) => (
+                            <Cell key={i} fill={entry.color} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <EmptyState variant="chart" prompt="no data to chart" />
                 )}
-              </tbody>
-              {sortedEntries.length > 0 && (
-                <tfoot>
-                  <tr className="border-t border-terminal-border bg-terminal-surface">
-                    <td colSpan={4} className="px-4 py-3 text-terminal-text-bright font-medium">
-                      Total
-                    </td>
-                    <td className="px-4 py-3 text-right text-terminal-green font-medium">
-                      {formatDecimalHours(detailed.totalMinutes)}h
-                    </td>
-                    <td />
-                  </tr>
-                </tfoot>
-              )}
-            </table>
-          </div>
-        </div>
-      )}
+              </Card>
 
-      {!loading && tab === 'summary' && summary && summary.groups.length === 0 && (
-        <p className="text-terminal-text font-mono text-sm mt-4">
-          No data found for this period.
-        </p>
-      )}
+              {/* Donut chart */}
+              <Card>
+                <div className="mb-3">
+                  <span className="text-label-caps text-terminal-text-muted text-xs tracking-[0.08em]">
+                    <span className="text-terminal-green">#</span> distribution
+                  </span>
+                </div>
+                {pieData.length > 0 ? (
+                  <div className="h-[200px] sm:h-[260px]">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={pieData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={55}
+                          outerRadius={90}
+                          paddingAngle={2}
+                          dataKey="value"
+                          stroke="none"
+                        >
+                          {pieData.map((entry, i) => (
+                            <Cell key={i} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip
+                          content={
+                            <ChartTooltip formatValue={(v) => `${(v / 60).toFixed(2)}h`} />
+                          }
+                        />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <EmptyState variant="chart" prompt="no data to chart" />
+                )}
+              </Card>
+            </div>
+
+            {/* Summary table */}
+            <Card padding="none" className="overflow-hidden">
+              <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+                <table className="w-full text-sm font-mono">
+                  <thead>
+                    <tr className="bg-terminal-surface text-left text-[11px] uppercase tracking-wide text-terminal-text-muted">
+                      <th className="px-4 py-3 font-medium">Name</th>
+                      <th className="px-4 py-3 text-right font-medium">Hours</th>
+                      <th className="px-4 py-3 text-right font-medium">Billable</th>
+                      <th className="px-4 py-3 text-right font-medium">Entries</th>
+                      <th className="px-4 py-3 w-48"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {summary.groups.map((g) => (
+                      <tr
+                        key={g.id}
+                        className="border-t border-terminal-border bg-terminal-bg-light transition-colors hover:border-l-2 hover:border-l-terminal-green focus-within:ring-1 focus-within:ring-inset focus-within:ring-terminal-green/40"
+                      >
+                        <td className="px-4 py-3">
+                          <ProjectBadge name={g.name} color={g.color} />
+                        </td>
+                        <td className="px-4 py-3 text-right font-data text-terminal-text-bright">
+                          {formatDecimalHours(g.totalMinutes)}h
+                        </td>
+                        <td className="px-4 py-3 text-right font-data text-terminal-blue">
+                          {formatDecimalHours(g.billableMinutes)}h
+                        </td>
+                        <td className="px-4 py-3 text-right font-data text-terminal-text-muted">
+                          {g.entries}
+                        </td>
+                        <td className="px-4 py-3">
+                          <ProgressBar value={g.totalMinutes} max={maxMinutes} color={g.color} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </div>
+        )
+      ) : tab === 'detailed' && detailed ? (
+        detailed.entries.length === 0 ? (
+          <EmptyState
+            prompt="no entries in range"
+            message="No time entries match this period or project filter. Try widening the date range."
+          />
+        ) : (
+          <div className="animate-fade-in">
+            {/* Totals */}
+            <div className="grid grid-cols-2 gap-4 mb-6 max-w-md">
+              <StatCard
+                label="Total Hours"
+                value={`${formatDecimalHours(detailed.totalMinutes)}h`}
+                tone="green"
+              />
+              <StatCard label="Entries" value={detailed.entries.length} tone="bright" />
+            </div>
+
+            {/* Detailed table */}
+            <Card padding="none" className="overflow-hidden">
+              <div className="overflow-x-auto -mx-4 px-4 md:mx-0 md:px-0">
+                <table className="w-full text-sm font-mono">
+                  <thead>
+                    <tr className="bg-terminal-surface text-left text-[11px] uppercase tracking-wide text-terminal-text-muted">
+                      <th
+                        className="px-4 py-3 font-medium cursor-pointer select-none transition-colors hover:text-terminal-text-bright"
+                        onClick={() => handleSort('date')}
+                      >
+                        Date{sortArrow('date')}
+                      </th>
+                      <th
+                        className="px-4 py-3 font-medium cursor-pointer select-none transition-colors hover:text-terminal-text-bright"
+                        onClick={() => handleSort('projectName')}
+                      >
+                        Project{sortArrow('projectName')}
+                      </th>
+                      <th
+                        className="px-4 py-3 font-medium cursor-pointer select-none transition-colors hover:text-terminal-text-bright"
+                        onClick={() => handleSort('description')}
+                      >
+                        Description{sortArrow('description')}
+                      </th>
+                      <th className="hidden sm:table-cell px-4 py-3 font-medium">Time</th>
+                      <th
+                        className="px-4 py-3 text-right font-medium cursor-pointer select-none transition-colors hover:text-terminal-text-bright"
+                        onClick={() => handleSort('durationMin')}
+                      >
+                        Hours{sortArrow('durationMin')}
+                      </th>
+                      <th
+                        className="hidden sm:table-cell px-4 py-3 text-center font-medium cursor-pointer select-none transition-colors hover:text-terminal-text-bright"
+                        onClick={() => handleSort('billable')}
+                      >
+                        Billable{sortArrow('billable')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sortedEntries.map((entry) => (
+                      <tr
+                        key={entry.id}
+                        className="border-t border-terminal-border bg-terminal-bg-light transition-colors hover:border-l-2 hover:border-l-terminal-green focus-within:ring-1 focus-within:ring-inset focus-within:ring-terminal-green/40"
+                      >
+                        <td className="px-4 py-3 font-data text-terminal-text whitespace-nowrap">
+                          {formatShortDate(entry.date)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <ProjectBadge name={entry.projectName} color={entry.projectColor} />
+                        </td>
+                        <td className="px-4 py-3 font-prose text-terminal-text max-w-xs truncate">
+                          {entry.description}
+                        </td>
+                        <td className="hidden sm:table-cell px-4 py-3 font-data text-terminal-text whitespace-nowrap">
+                          {formatTimeRange(entry.startTime, entry.endTime)}
+                        </td>
+                        <td className="px-4 py-3 text-right font-data text-terminal-text-bright whitespace-nowrap">
+                          {formatDecimalHours(entry.durationMin)}h
+                        </td>
+                        <td className="hidden sm:table-cell px-4 py-3 text-center">
+                          {entry.billable ? (
+                            <Badge variant="success">billable</Badge>
+                          ) : (
+                            <Badge variant="muted">&#8212;</Badge>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="border-t border-terminal-border bg-terminal-surface">
+                      <td colSpan={3} className="px-4 py-3 font-medium text-terminal-text-bright">
+                        Total
+                      </td>
+                      <td className="hidden sm:table-cell px-4 py-3" />
+                      <td className="px-4 py-3 text-right font-data font-medium text-terminal-green whitespace-nowrap">
+                        {formatDecimalHours(detailed.totalMinutes)}h
+                      </td>
+                      <td className="hidden sm:table-cell px-4 py-3" />
+                    </tr>
+                  </tfoot>
+                </table>
+              </div>
+            </Card>
+          </div>
+        )
+      ) : null}
+    </div>
+  )
+}
+
+function SummarySkeleton() {
+  return (
+    <div className="animate-fade-in">
+      <div className="grid grid-cols-2 gap-4 mb-6 max-w-md">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <Card className="lg:col-span-2">
+          <Skeleton className="h-3 w-32 mb-3" />
+          <Skeleton className="h-[200px] sm:h-[260px] w-full" />
+        </Card>
+        <Card>
+          <Skeleton className="h-3 w-24 mb-3" />
+          <Skeleton className="h-[200px] sm:h-[260px] w-full" />
+        </Card>
+      </div>
+      <Card padding="none" className="overflow-hidden">
+        <div className="divide-y divide-terminal-border">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-3">
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-3 w-16 ml-auto" />
+              <Skeleton className="h-3 w-16" />
+              <Skeleton className="h-2 w-40" />
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  )
+}
+
+function DetailedSkeleton() {
+  return (
+    <div className="animate-fade-in">
+      <div className="grid grid-cols-2 gap-4 mb-6 max-w-md">
+        <SkeletonCard />
+        <SkeletonCard />
+      </div>
+      <Card padding="none" className="overflow-hidden">
+        <div className="divide-y divide-terminal-border">
+          {Array.from({ length: 8 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-4 px-4 py-3">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-3 flex-1" />
+              <Skeleton className="h-3 w-14" />
+            </div>
+          ))}
+        </div>
+      </Card>
     </div>
   )
 }

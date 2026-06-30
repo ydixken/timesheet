@@ -4,6 +4,7 @@ import type { EntryWithProject } from '../../types'
 import { formatDecimalHours, parseHoursToMinutes, groupEntriesByDate } from '../../lib/time'
 import { Button } from '../ui/Button'
 import { Input } from '../ui/Input'
+import { Card } from '../ui/Card'
 import { ProjectBadge } from '../ProjectBadge'
 import { ProjectSelector } from '../ProjectSelector'
 
@@ -239,14 +240,14 @@ export function MonthView({
 
       {/* Day detail panel */}
       {selectedDay !== null && (
-        <div className="mt-4 bg-terminal-bg-light border border-terminal-border rounded p-4">
+        <Card className="mt-4">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-terminal-text-bright font-mono text-sm font-bold">
               {selectedDateStr}
             </h2>
             <span className="text-terminal-text font-mono text-sm">
               Total:{' '}
-              <span className="text-terminal-text-bright font-bold">
+              <span className="text-terminal-text-bright font-bold font-data">
                 {selectedDayData && selectedDayData.totalMin > 0
                   ? `${formatDecimalHours(selectedDayData.totalMin)}h`
                   : '0h'}
@@ -267,28 +268,28 @@ export function MonthView({
                     color={entry.project?.color ?? '#888'}
                     clientName={entry.client?.name}
                   />
-                  <span className="text-sm text-terminal-text flex-1 truncate">
+                  <span className="font-prose text-sm text-terminal-text flex-1 truncate">
                     {entry.description || '\u2014'}
                   </span>
-                  <span className="text-xs text-terminal-text font-mono shrink-0">
+                  <span className="text-xs text-terminal-text-muted font-data shrink-0">
                     {entry.startTime && entry.endTime
                       ? `${entry.startTime} \u2013 ${entry.endTime}`
                       : '\u2014'}
                   </span>
-                  <span className="text-sm text-terminal-text-bright font-bold font-mono shrink-0">
+                  <span className="text-sm text-terminal-text-bright font-bold font-data shrink-0">
                     {formatDecimalHours(entry.durationMin)}h
                   </span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="text-terminal-text text-sm mb-4 font-mono">No entries for this day.</p>
+            <p className="text-terminal-text-muted text-sm mb-4 font-prose">No entries for this day.</p>
           )}
 
           {/* Add entry */}
           {addingEntry ? (
-            <div className="space-y-3 border border-terminal-border rounded p-3 bg-terminal-bg">
-              <div className="grid grid-cols-2 gap-3">
+            <Card accent padding="sm" className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <ProjectSelector
                   value={newProjectId}
                   onChange={setNewProjectId}
@@ -343,7 +344,7 @@ export function MonthView({
                   cancel
                 </Button>
               </div>
-            </div>
+            </Card>
           ) : (
             <Button
               variant="outline"
@@ -353,7 +354,7 @@ export function MonthView({
               + add entry
             </Button>
           )}
-        </div>
+        </Card>
       )}
     </>
   )

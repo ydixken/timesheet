@@ -1,27 +1,16 @@
 import { create } from 'zustand'
-import type { BudgetThreshold, BudgetLevel } from '@timesheet/shared'
-import { computeBudgetStatus, BUDGET_THRESHOLDS } from '@timesheet/shared'
-import type { ProjectStatus } from '@timesheet/shared'
+import type { BudgetThreshold, ProjectStatus } from '@timesheet/shared'
+import { computeBudgetStatus } from '@timesheet/shared'
 import { api } from '../api/client'
-
-export interface BudgetToastData {
-  projectName: string
-  projectColor: string
-  percentage: number
-  threshold: BudgetThreshold
-  level: BudgetLevel
-}
+import { toast } from '../store/toasts'
 
 interface BudgetAlertsState {
   shownThresholds: Map<string, Set<BudgetThreshold>>
-  toast: BudgetToastData | null
   checkBudget: (projectId: string) => Promise<void>
-  dismissToast: () => void
 }
 
 export const useBudgetAlerts = create<BudgetAlertsState>((set, get) => ({
   shownThresholds: new Map(),
-  toast: null,
 
   checkBudget: async (projectId: string) => {
     try {
@@ -35,29 +24,21 @@ export const useBudgetAlerts = create<BudgetAlertsState>((set, get) => ({
 
       if (newThresholds.length === 0) return
 
-      const highest = newThresholds.reduce((max, t) => (t > max ? t : max))
       const allCrossed = new Set([...previouslyShown, ...budgetStatus.crossedThresholds])
 
       set((state) => {
         const updated = new Map(state.shownThresholds)
         updated.set(projectId, allCrossed)
-        return {
-          shownThresholds: updated,
-          toast: {
-            projectName: status.project.name,
-            projectColor: status.project.color,
-            percentage: budgetStatus.percentage!,
-            threshold: highest,
-            level: budgetStatus.level,
-          },
-        }
+        return { shownThresholds: updated }
       })
 
-      setTimeout(() => get().dismissToast(), 4000)
+      toast({
+        variant: budgetStatus.level === 'warning' ? 'warning' : 'danger',
+        title: 'budget alert',
+        message: `${status.project.name} at ${budgetStatus.percentage}% of budget`,
+      })
     } catch {
       // silently ignore - budget check is non-critical
     }
   },
-
-  dismissToast: () => set({ toast: null }),
 }))

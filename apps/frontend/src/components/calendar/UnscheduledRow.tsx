@@ -16,7 +16,7 @@ export function UnscheduledRow({ dates, entriesByDate }: UnscheduledRowProps) {
       className="grid border-b border-terminal-border/30 py-1.5"
       style={{ gridTemplateColumns: `56px repeat(${dates.length}, 1fr)` }}
     >
-      <div className="text-[9px] text-terminal-text/30 font-mono flex items-center justify-end pr-2">
+      <div className="text-[9px] text-terminal-text-faint font-mono flex items-center justify-end pr-2">
         unsched
       </div>
       {dates.map((dateStr) => {
@@ -35,7 +35,7 @@ export function UnscheduledRow({ dates, entriesByDate }: UnscheduledRowProps) {
                 <span className="text-terminal-text truncate max-w-[60px]">
                   {entry.description || entry.project?.name || '—'}
                 </span>
-                <span className="text-terminal-text/60 shrink-0">
+                <span className="text-terminal-text-muted shrink-0">
                   {formatDuration(entry.durationMin)}
                 </span>
               </div>

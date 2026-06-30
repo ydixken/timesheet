@@ -7,11 +7,34 @@ import { useClients } from '../hooks/useClients'
 import { useTasks } from '../hooks/useTasks'
 import { Button } from '../components/ui/Button'
 import { Input } from '../components/ui/Input'
+import { Card } from '../components/ui/Card'
+import { StatCard } from '../components/ui/StatCard'
+import { ProgressBar } from '../components/ui/ProgressBar'
+import { Select } from '../components/ui/Select'
+import { Skeleton, SkeletonCard } from '../components/ui/Skeleton'
+import { ErrorState } from '../components/ui/ErrorState'
 import { PdfPreviewModal } from '../components/PdfPreviewModal'
+import { toast } from '../store/toasts'
 import { formatDecimalHours } from '../lib/time'
 
 function formatEuro(amount: number): string {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount)
+}
+
+// Reproduce the original budgetLevelColors() value colors within the design-system
+// primitives: an exact hex for the ProgressBar fill and the nearest StatCard tone.
+const budgetBarHex: Record<'ok' | 'warning' | 'danger' | 'exceeded', string> = {
+  ok: '#39ff14',
+  warning: '#f1fa8c',
+  danger: '#ff5555',
+  exceeded: '#ff5555',
+}
+
+const budgetTone: Record<'ok' | 'warning' | 'danger' | 'exceeded', 'green' | 'warning' | 'danger'> = {
+  ok: 'green',
+  warning: 'warning',
+  danger: 'danger',
+  exceeded: 'danger',
 }
 
 export function ProjectDetail() {
@@ -48,41 +71,77 @@ export function ProjectDetail() {
 
   const handleArchiveToggle = async () => {
     if (!status || !id) return
+    const willArchive = status.project.active
     try {
       await api.put(`/projects/${id}`, { active: !status.project.active })
+      toast({ variant: 'success', message: willArchive ? 'Project archived' : 'Project activated' })
       fetchStatus()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update project')
+      toast({ variant: 'danger', message: e instanceof Error ? e.message : 'Failed to update project' })
     }
   }
 
   const handleUpdate = async (data: UpdateProjectInput) => {
     if (!id) return
-    setError(null)
     try {
       await api.put(`/projects/${id}`, data)
       setShowEdit(false)
+      toast({ variant: 'success', message: 'Project updated' })
       fetchStatus()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Failed to update project')
+      toast({ variant: 'danger', message: e instanceof Error ? e.message : 'Failed to update project' })
     }
   }
 
   if (loading && !status) {
     return (
-      <div>
-        <p className="text-terminal-text font-mono text-sm">Loading...</p>
+      <div className="animate-fade-in">
+        {/* Header skeleton */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          <Skeleton className="h-8 w-56" />
+          <div className="flex items-center gap-2">
+            <Skeleton className="h-9 w-28" />
+            <Skeleton className="h-9 w-16" />
+            <Skeleton className="h-9 w-20" />
+          </div>
+        </div>
+        {/* KPI skeletons */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <SkeletonCard key={i} />
+          ))}
+        </div>
+        {/* Progress skeleton */}
+        <Card className="mb-6">
+          <Skeleton className="h-3 w-40" />
+          <Skeleton className="h-2 w-full mt-2" />
+          <Skeleton className="h-3 w-40 mt-4" />
+          <Skeleton className="h-2 w-full mt-2" />
+        </Card>
+        {/* Tasks skeleton */}
+        <Skeleton className="h-3 w-16 mb-3" />
+        <Card padding="none" className="overflow-hidden">
+          <div className="bg-terminal-surface h-10" />
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="px-4 py-3 border-b border-terminal-border/50 last:border-0">
+              <Skeleton className="h-4 w-full" />
+            </div>
+          ))}
+        </Card>
       </div>
     )
   }
 
   if (error && !status) {
     return (
-      <div>
-        <p className="text-terminal-danger font-mono text-sm">{error}</p>
-        <Button className="mt-4" onClick={() => navigate('/projects')}>
-          Back to projects
-        </Button>
+      <div className="animate-fade-in">
+        <button
+          onClick={() => navigate('/projects')}
+          className="text-terminal-text hover:text-terminal-green font-mono text-sm transition-colors cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-green/60"
+        >
+          $ projects
+        </button>
+        <ErrorState message={error} onRetry={fetchStatus} />
       </div>
     )
   }
@@ -103,28 +162,28 @@ export function ProjectDetail() {
     : 0
 
   return (
-    <div>
+    <div className="animate-fade-in">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+        <div className="flex items-center gap-3 min-w-0">
           <button
             onClick={() => navigate('/projects')}
-            className="text-terminal-text hover:text-terminal-green font-mono text-sm transition-colors cursor-pointer"
+            className="text-terminal-text hover:text-terminal-green font-mono text-sm transition-colors cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-green/60 shrink-0"
           >
             $ projects
           </button>
-          <span className="text-terminal-text font-mono">/</span>
-          <div className="flex items-center gap-2">
+          <span className="text-terminal-text-muted font-mono shrink-0">/</span>
+          <div className="flex items-center gap-2 min-w-0">
             <div
               className="w-3 h-3 rounded-full shrink-0"
               style={{ backgroundColor: project.color }}
             />
-            <h1 className="text-2xl font-bold text-terminal-text-bright font-mono">
+            <h1 className="text-2xl font-bold text-terminal-text-bright font-mono truncate">
               {project.name}
             </h1>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Button onClick={() => setPdfModalOpen(true)} className="border-terminal-blue text-terminal-blue hover:bg-terminal-blue hover:text-terminal-bg">
             [export pdf]
           </Button>
@@ -138,8 +197,6 @@ export function ProjectDetail() {
         </div>
       </div>
 
-      {error && <p className="text-terminal-danger font-mono text-sm mb-4">{error}</p>}
-
       {/* Edit form */}
       {showEdit && (
         <EditProjectForm
@@ -151,64 +208,65 @@ export function ProjectDetail() {
       )}
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <KpiCard label="Tracked" value={`${formatDecimalHours(status.totalMinutes)}h`} />
-        <KpiCard label="Billable" value={`${formatDecimalHours(status.billableMinutes)}h`} />
-        <KpiCard
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <StatCard className="min-w-0" label="Tracked" value={`${formatDecimalHours(status.totalMinutes)}h`} tone="bright" />
+        <StatCard className="min-w-0" label="Billable" value={`${formatDecimalHours(status.billableMinutes)}h`} tone="bright" />
+        <StatCard
+          className="min-w-0"
           label="Budget"
           value={
             budget !== null
               ? `${Math.max(budget - trackedHours, 0).toFixed(1)}h left`
               : '--'
           }
-          colorClass={budget !== null ? budgetColors.text : undefined}
+          tone={budget !== null ? budgetTone[budgetStatus.level] : 'muted'}
         />
-        <KpiCard
+        <StatCard
+          className="min-w-0"
           label="Earned"
           value={earned !== null ? formatEuro(earned) : '--'}
-          highlight
+          tone={earned !== null ? 'green' : 'muted'}
         />
       </div>
 
       {/* Progress bars */}
-      <div className="bg-terminal-bg-light border border-terminal-border rounded-lg p-4 mb-6">
+      <Card className="mb-6">
         {budgetUsedPct !== null && (
           <div className="mb-4">
-            <div className="flex justify-between mb-1">
-              <span className="text-terminal-text font-mono text-sm">Budget Progress</span>
-              <span className={`${budgetColors.text} font-mono text-sm`}>
+            <div className="flex justify-between mb-2 text-sm">
+              <span className="text-terminal-text-muted font-mono">Budget Progress</span>
+              <span className={`${budgetColors.text} font-data`}>
                 {budgetUsedPct.toFixed(0)}% ({trackedHours.toFixed(1)} / {budget}h)
               </span>
             </div>
-            <div className="w-full h-2 bg-terminal-surface rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full transition-all duration-300 ${budgetColors.bar}`}
-                style={{ width: `${budgetUsedPct}%` }}
-              />
-            </div>
+            <ProgressBar value={budgetUsedPct} color={budgetBarHex[budgetStatus.level]} />
           </div>
         )}
         <div>
-          <div className="flex justify-between mb-1">
-            <span className="text-terminal-text font-mono text-sm">Billable vs Non-billable</span>
-            <span className="text-terminal-text-bright font-mono text-sm">
+          <div className="flex justify-between mb-2 text-sm">
+            <span className="text-terminal-text-muted font-mono">Billable vs Non-billable</span>
+            <span className="text-terminal-text-bright font-data">
               {billablePct.toFixed(0)}% billable
             </span>
           </div>
-          <div className="w-full h-2 bg-terminal-surface rounded-full overflow-hidden">
-            <div
-              className="h-full bg-terminal-blue rounded-full transition-all duration-300"
-              style={{ width: `${billablePct}%` }}
-            />
-          </div>
+          <ProgressBar value={billablePct} color="#00d9ff" />
         </div>
-      </div>
+      </Card>
 
       {/* Tasks */}
-      <div className="bg-terminal-bg-light border border-terminal-border rounded-lg p-4">
-        <h2 className="text-terminal-text-bright font-mono text-sm font-bold mb-4">Tasks</h2>
+      <section>
+        <div className="text-label-caps text-terminal-text-muted text-xs tracking-[0.08em] mb-3">
+          <span className="text-terminal-green"># </span>tasks
+        </div>
         {tasksLoading && tasks.length === 0 ? (
-          <p className="text-terminal-text font-mono text-sm">Loading tasks...</p>
+          <Card padding="none" className="overflow-hidden">
+            <div className="bg-terminal-surface h-10" />
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="px-4 py-3 border-b border-terminal-border/50 last:border-0">
+                <Skeleton className="h-4 w-full" />
+              </div>
+            ))}
+          </Card>
         ) : (
           <TasksTable
             tasks={tasks}
@@ -219,7 +277,7 @@ export function ProjectDetail() {
             onRemoveTask={removeTask}
           />
         )}
-      </div>
+      </section>
 
       <PdfPreviewModal
         projectId={id!}
@@ -228,31 +286,6 @@ export function ProjectDetail() {
         onClose={() => setPdfModalOpen(false)}
         roundingMin={project.roundingMin}
       />
-    </div>
-  )
-}
-
-function KpiCard({
-  label,
-  value,
-  highlight,
-  colorClass,
-}: {
-  label: string
-  value: string
-  highlight?: boolean
-  colorClass?: string
-}) {
-  return (
-    <div className="bg-terminal-bg-light border border-terminal-border rounded-lg p-4">
-      <p className="text-terminal-text font-mono text-xs mb-1">{label}</p>
-      <p
-        className={`font-mono text-2xl font-bold truncate ${
-          colorClass ?? (highlight ? 'text-terminal-green' : 'text-terminal-text-bright')
-        }`}
-      >
-        {value}
-      </p>
     </div>
   )
 }
@@ -274,7 +307,6 @@ function TasksTable({
 }) {
   const [newName, setNewName] = useState('')
   const [newBillable, setNewBillable] = useState(true)
-  const [addError, setAddError] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
@@ -283,13 +315,20 @@ function TasksTable({
 
   const handleAdd = async () => {
     if (!newName.trim()) return
-    setAddError(null)
     try {
       await onCreateTask({ projectId, name: newName.trim(), billable: newBillable, active: true })
       setNewName('')
       setNewBillable(true)
     } catch (e) {
-      setAddError(e instanceof Error ? e.message : 'Failed to add task')
+      toast({ variant: 'danger', message: e instanceof Error ? e.message : 'Failed to add task' })
+    }
+  }
+
+  const handleToggle = async (id: string, data: { billable?: boolean; active?: boolean }) => {
+    try {
+      await onUpdateTask(id, data)
+    } catch {
+      toast({ variant: 'danger', message: 'Failed to update task' })
     }
   }
 
@@ -299,7 +338,7 @@ function TasksTable({
       await onUpdateTask(task.id, { name: editName.trim() })
       setEditingId(null)
     } catch {
-      // keep editing open on error
+      toast({ variant: 'danger', message: 'Failed to update task' })
     }
   }
 
@@ -308,21 +347,21 @@ function TasksTable({
       await onRemoveTask(id)
       setDeletingId(null)
     } catch {
-      // keep confirm open on error
+      toast({ variant: 'danger', message: 'Failed to delete task' })
     }
   }
 
   return (
-    <div>
-      {tasks.length > 0 && (
-        <table className="w-full font-mono text-sm mb-4">
+    <Card padding="none" className="overflow-hidden">
+      {tasks.length > 0 ? (
+        <table className="w-full font-mono text-sm">
           <thead>
-            <tr className="text-terminal-text text-left border-b border-terminal-border">
-              <th className="pb-2 font-normal">Task</th>
-              <th className="pb-2 font-normal w-20 text-right">Hours</th>
-              <th className="pb-2 font-normal w-20 text-center">Billable</th>
-              <th className="pb-2 font-normal w-20 text-center">Active</th>
-              <th className="pb-2 font-normal w-28"></th>
+            <tr className="bg-terminal-surface text-[11px] uppercase tracking-wide text-terminal-text-muted">
+              <th className="text-left font-normal px-4 py-3">Task</th>
+              <th className="text-right font-normal px-4 py-3 w-24">Hours</th>
+              <th className="text-center font-normal px-4 py-3 w-20">Billable</th>
+              <th className="text-center font-normal px-4 py-3 w-20">Active</th>
+              <th className="px-4 py-3 w-28"></th>
             </tr>
           </thead>
           <tbody>
@@ -334,98 +373,98 @@ function TasksTable({
               return (
                 <tr
                   key={task.id}
-                  className="border-b border-terminal-border/50 hover:bg-terminal-surface/30"
+                  className="border-b border-terminal-border/50 last:border-0 hover:bg-terminal-surface/30 focus-within:bg-terminal-surface/30 transition-colors"
                 >
-                  <td className="py-2 text-terminal-text-bright">
+                  <td className="px-4 py-2 text-terminal-text-bright">
                     {isEditing ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          value={editName}
-                          onChange={(e) => setEditName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') handleEditSave(task)
-                            if (e.key === 'Escape') setEditingId(null)
-                          }}
-                          className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-2 py-1 rounded text-sm focus:outline-none focus:border-terminal-green w-full"
-                          autoFocus
-                        />
-                      </div>
+                      <input
+                        value={editName}
+                        onChange={(e) => setEditName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleEditSave(task)
+                          if (e.key === 'Escape') setEditingId(null)
+                        }}
+                        className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-2 py-1 rounded text-sm focus:outline-none focus:border-terminal-green focus:ring-1 focus:ring-terminal-green/30 w-full"
+                        autoFocus
+                      />
                     ) : (
                       task.name
                     )}
                   </td>
-                  <td className="py-2 text-right text-terminal-green">
+                  <td className="px-4 py-2 text-right text-terminal-green font-data">
                     {formatDecimalHours(minutes)}h
                   </td>
-                  <td className="py-2 text-center">
+                  <td className="px-4 py-2 text-center">
                     <button
-                      onClick={() => onUpdateTask(task.id, { billable: !task.billable })}
-                      className="cursor-pointer hover:opacity-80"
+                      onClick={() => handleToggle(task.id, { billable: !task.billable })}
+                      className="cursor-pointer hover:opacity-80 rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-green/60"
+                      aria-label={task.billable ? 'Mark non-billable' : 'Mark billable'}
                     >
                       {task.billable ? (
                         <span className="text-terminal-green">&#10003;</span>
                       ) : (
-                        <span className="text-terminal-text">&#10007;</span>
+                        <span className="text-terminal-text-muted">&#10007;</span>
                       )}
                     </button>
                   </td>
-                  <td className="py-2 text-center">
+                  <td className="px-4 py-2 text-center">
                     <button
-                      onClick={() => onUpdateTask(task.id, { active: !task.active })}
-                      className="cursor-pointer hover:opacity-80"
+                      onClick={() => handleToggle(task.id, { active: !task.active })}
+                      className="cursor-pointer hover:opacity-80 rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-green/60"
+                      aria-label={task.active ? 'Deactivate task' : 'Activate task'}
                     >
                       {task.active ? (
                         <span className="text-terminal-green">&#10003;</span>
                       ) : (
-                        <span className="text-terminal-text">&#10007;</span>
+                        <span className="text-terminal-text-muted">&#10007;</span>
                       )}
                     </button>
                   </td>
-                  <td className="py-2 text-right">
+                  <td className="px-4 py-2 text-right">
                     {isDeleting ? (
-                      <div className="flex items-center gap-1 justify-end">
+                      <div className="flex items-center gap-2 justify-end">
                         <button
                           onClick={() => handleDelete(task.id)}
-                          className="text-terminal-danger text-xs font-mono cursor-pointer hover:underline"
+                          className="text-terminal-danger text-xs font-mono cursor-pointer hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-danger/60"
                         >
                           confirm
                         </button>
                         <button
                           onClick={() => setDeletingId(null)}
-                          className="text-terminal-text text-xs font-mono cursor-pointer hover:underline"
+                          className="text-terminal-text-muted text-xs font-mono cursor-pointer hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-green/60"
                         >
                           cancel
                         </button>
                       </div>
                     ) : isEditing ? (
-                      <div className="flex items-center gap-1 justify-end">
+                      <div className="flex items-center gap-2 justify-end">
                         <button
                           onClick={() => handleEditSave(task)}
-                          className="text-terminal-green text-xs font-mono cursor-pointer hover:underline"
+                          className="text-terminal-green text-xs font-mono cursor-pointer hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-green/60"
                         >
                           save
                         </button>
                         <button
                           onClick={() => setEditingId(null)}
-                          className="text-terminal-text text-xs font-mono cursor-pointer hover:underline"
+                          className="text-terminal-text-muted text-xs font-mono cursor-pointer hover:underline rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-green/60"
                         >
                           cancel
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-2 justify-end">
+                      <div className="flex items-center gap-3 justify-end">
                         <button
                           onClick={() => {
                             setEditingId(task.id)
                             setEditName(task.name)
                           }}
-                          className="text-terminal-text hover:text-terminal-green text-xs font-mono cursor-pointer"
+                          className="text-terminal-text-muted hover:text-terminal-green text-xs font-mono cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-green/60"
                         >
                           edit
                         </button>
                         <button
                           onClick={() => setDeletingId(task.id)}
-                          className="text-terminal-text hover:text-terminal-danger text-xs font-mono cursor-pointer"
+                          className="text-terminal-text-muted hover:text-terminal-danger text-xs font-mono cursor-pointer rounded-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-terminal-danger/60"
                         >
                           del
                         </button>
@@ -437,10 +476,14 @@ function TasksTable({
             })}
           </tbody>
         </table>
+      ) : (
+        <p className="font-prose text-sm text-terminal-text-muted px-4 py-6">
+          No tasks yet. Add one below to break this project into billable work items.
+        </p>
       )}
 
       {/* Add task row */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2 border-t border-terminal-border px-4 py-3">
         <input
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
@@ -448,7 +491,7 @@ function TasksTable({
             if (e.key === 'Enter') handleAdd()
           }}
           placeholder="New task name..."
-          className="flex-1 bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green focus:ring-1 focus:ring-terminal-green/30 placeholder:text-terminal-text/50"
+          className="flex-1 min-w-[10rem] bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green focus:ring-1 focus:ring-terminal-green/30 placeholder:text-terminal-text-muted"
         />
         <label className="flex items-center gap-1.5 text-sm text-terminal-text-bright font-mono shrink-0">
           <input
@@ -463,8 +506,7 @@ function TasksTable({
           [+ add task]
         </Button>
       </div>
-      {addError && <p className="text-terminal-danger font-mono text-xs mt-1">{addError}</p>}
-    </div>
+    </Card>
   )
 }
 
@@ -517,31 +559,31 @@ function EditProjectForm({
   }
 
   return (
-    <div className="bg-terminal-bg-light border border-terminal-green rounded-lg p-4 mb-6">
-      <h2 className="text-terminal-text-bright font-mono text-sm font-bold mb-4">Edit Project</h2>
+    <Card accent className="mb-6 animate-fade-in">
+      <div className="text-label-caps text-terminal-text-muted text-xs tracking-[0.08em] mb-4">
+        <span className="text-terminal-green">$ </span>edit project
+      </div>
       <form onSubmit={handleSubmit} className="space-y-3">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Input
             label="Name"
             value={name}
             onChange={(e) => setName(e.target.value)}
             autoFocus
           />
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-terminal-text-bright font-mono">Client</label>
-            <select
-              value={clientId}
-              onChange={(e) => setClientId(e.target.value)}
-              className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green focus:ring-1 focus:ring-terminal-green/30"
-            >
-              <option value="">No client</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Select
+            label="Client"
+            value={clientId}
+            onChange={(e) => setClientId(e.target.value)}
+            className="w-full"
+          >
+            <option value="">No client</option>
+            {clients.map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </Select>
           <div className="flex flex-col gap-1">
             <label className="text-sm text-terminal-text-bright font-mono">Color</label>
             <div className="flex items-center gap-2">
@@ -598,20 +640,18 @@ function EditProjectForm({
               </label>
             </div>
           </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm text-terminal-text-bright font-mono">Time Rounding</label>
-            <select
-              value={roundingMin}
-              onChange={(e) => setRoundingMin(e.target.value)}
-              className="bg-terminal-surface border border-terminal-border text-terminal-text-bright font-mono px-3 py-2 rounded text-sm focus:outline-none focus:border-terminal-green focus:ring-1 focus:ring-terminal-green/30"
-            >
-              <option value="">No rounding</option>
-              <option value="5">5 min</option>
-              <option value="10">10 min</option>
-              <option value="15">15 min (quarter hour)</option>
-              <option value="30">30 min (half hour)</option>
-            </select>
-          </div>
+          <Select
+            label="Time Rounding"
+            value={roundingMin}
+            onChange={(e) => setRoundingMin(e.target.value)}
+            className="w-full"
+          >
+            <option value="">No rounding</option>
+            <option value="5">5 min</option>
+            <option value="10">10 min</option>
+            <option value="15">15 min (quarter hour)</option>
+            <option value="30">30 min (half hour)</option>
+          </Select>
         </div>
         {formError && <p className="text-terminal-danger font-mono text-sm">{formError}</p>}
         <div className="flex items-center gap-2">
@@ -623,6 +663,6 @@ function EditProjectForm({
           </Button>
         </div>
       </form>
-    </div>
+    </Card>
   )
 }

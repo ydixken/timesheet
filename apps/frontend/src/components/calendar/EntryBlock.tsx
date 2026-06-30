@@ -1,13 +1,7 @@
 import { useRef } from 'react'
 import type { EntryWithProject } from '../../types'
 import { formatDuration } from '../../lib/time'
-
-function hexToRgba(hex: string, alpha: number): string {
-  const r = parseInt(hex.slice(1, 3), 16)
-  const g = parseInt(hex.slice(3, 5), 16)
-  const b = parseInt(hex.slice(5, 7), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
+import { hexToRgba } from '../../lib/color'
 
 interface EntryBlockProps {
   entry: EntryWithProject
@@ -54,14 +48,14 @@ export function EntryBlock({ entry, top, height, column, totalColumns, onClick }
       {height >= 64 ? (
         // Tall layout: description + project + duration
         <div className="flex flex-col h-full">
-          <span className="text-[11px] text-terminal-text-bright truncate leading-tight">
+          <span className="font-prose text-[11px] text-terminal-text-bright truncate leading-tight">
             {entry.description || '—'}
           </span>
           <span className="text-[10px] truncate leading-tight mt-0.5" style={{ color }}>
             {entry.project?.name ?? 'No project'}
             {entry.client ? ` · ${entry.client.name}` : ''}
           </span>
-          <span className="text-[10px] text-terminal-text/60 mt-auto self-end">
+          <span className="text-[10px] text-terminal-text-muted mt-auto self-end">
             {formatDuration(entry.durationMin)}
           </span>
         </div>
@@ -71,14 +65,14 @@ export function EntryBlock({ entry, top, height, column, totalColumns, onClick }
           <span className="text-[10px] truncate leading-tight" style={{ color }}>
             {entry.project?.name ?? 'No project'}
           </span>
-          <span className="text-[10px] text-terminal-text/60">
+          <span className="text-[10px] text-terminal-text-muted">
             {formatDuration(entry.durationMin)}
           </span>
         </div>
       ) : (
         // Small layout: duration only
         <div className="flex items-center justify-center h-full">
-          <span className="text-[10px] text-terminal-text/60">
+          <span className="text-[10px] text-terminal-text-muted">
             {formatDuration(entry.durationMin)}
           </span>
         </div>

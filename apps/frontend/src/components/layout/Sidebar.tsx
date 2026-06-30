@@ -1,22 +1,13 @@
 import { NavLink } from 'react-router-dom'
 import { useAuthStore } from '../../store/auth'
 import { useCommandPalette } from '../CommandPalette'
-
-const navItems = [
-  { to: '/', label: 'dashboard' },
-  { to: '/tracker', label: 'tracker' },
-  { to: '/timesheet', label: 'timesheet' },
-  { to: '/calendar', label: 'calendar' },
-  { to: '/reports', label: 'reports' },
-  { to: '/projects', label: 'projects' },
-  { to: '/clients', label: 'clients' },
-]
+import { navItems } from './nav-items'
 
 export function Sidebar() {
   const logout = useAuthStore((s) => s.logout)
 
   return (
-    <aside className="w-56 h-screen bg-terminal-bg-light border-r border-terminal-border flex flex-col fixed left-0 top-0 z-20">
+    <aside className="w-56 h-screen bg-terminal-bg-light border-r border-terminal-border hidden md:flex md:flex-col fixed left-0 top-0 z-20">
       <div className="p-5 border-b border-terminal-border">
         <h1 className="font-mono text-lg font-bold">
           <span className="text-terminal-green">~/</span>
@@ -47,7 +38,7 @@ export function Sidebar() {
       <div className="px-5 py-2">
         <button
           onClick={() => useCommandPalette.getState().toggle()}
-          className="flex items-center gap-2 w-full text-terminal-text/40 hover:text-terminal-text/70 font-mono text-xs transition-colors cursor-pointer"
+          className="flex items-center gap-2 w-full text-terminal-text-faint hover:text-terminal-text-muted font-mono text-xs transition-colors cursor-pointer"
         >
           <kbd className="px-1.5 py-0.5 rounded border border-terminal-border text-[10px]">
             {'⌘K'}

@@ -8,6 +8,8 @@ import { useClients } from '../hooks/useClients'
 import { useEntries } from '../hooks/useEntries'
 import { useBudgetAlerts } from '../hooks/useBudgetAlerts'
 import { formatLocalDate } from '../lib/time'
+import { toast } from '../store/toasts'
+import { navItems } from './layout/nav-items'
 
 export const useCommandPalette = create<{ open: boolean; toggle: () => void }>((set) => ({
   open: false,
@@ -25,23 +27,12 @@ function formatDuration(min: number): string {
 /** Check if the input starts with a duration pattern (quick-add mode) */
 const DURATION_PREFIX = /^(\d+h\d+m|\d+:\d{2}|\d+\.?\d*h|\d+m)\s*/
 
-const navItems = [
-  { to: '/', label: 'dashboard' },
-  { to: '/tracker', label: 'tracker' },
-  { to: '/timesheet', label: 'timesheet' },
-  { to: '/calendar', label: 'calendar' },
-  { to: '/reports', label: 'reports' },
-  { to: '/projects', label: 'projects' },
-  { to: '/clients', label: 'clients' },
-]
-
 export function CommandPalette() {
   const open = useCommandPalette((s) => s.open)
   const toggle = useCommandPalette((s) => s.toggle)
   const navigate = useNavigate()
   const [inputValue, setInputValue] = useState('')
   const [submitting, setSubmitting] = useState(false)
-  const [successToast, setSuccessToast] = useState<string | null>(null)
 
   const projects = useProjects((s) => s.projects)
   const fetchProjects = useProjects((s) => s.fetch)
@@ -116,8 +107,10 @@ export function CommandPalette() {
       // Refresh the tracker entries
       useEntries.getState().fetch()
       setOpen(false)
-      setSuccessToast(`${formatDuration(snap.durationMin)} added to ${proj.name}`)
-      setTimeout(() => setSuccessToast(null), 3000)
+      toast({
+        variant: 'success',
+        message: `${formatDuration(snap.durationMin)} added to ${proj.name}`,
+      })
     } catch {
       // silently fail
     } finally {
@@ -167,15 +160,15 @@ export function CommandPalette() {
       >
         {/* Overlay */}
         <div
-          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm animate-cmd-overlay"
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm animate-cmd-overlay"
           onClick={() => setOpen(false)}
         />
 
         {/* Dialog */}
-        <div className="fixed top-[20%] left-1/2 -translate-x-1/2 w-full max-w-xl z-50 animate-cmd-content">
-          <div className="bg-terminal-bg-light border border-terminal-border rounded-lg shadow-2xl overflow-hidden">
+        <div className="fixed inset-x-0 top-[8%] z-50 mx-3 sm:mx-auto max-w-xl">
+          <div className="bg-terminal-elevated border border-terminal-border rounded-xl shadow-overlay animate-cmd-content overflow-hidden flex flex-col max-h-[80dvh]">
             {/* Input wrapper */}
-            <div className="flex items-center gap-2 px-4 py-3 border-b border-terminal-border">
+            <div className="flex items-center gap-2 px-4 py-3 border-b border-terminal-border shrink-0">
               <span className="text-terminal-green font-mono text-sm font-bold select-none">
                 {'>_'}
               </span>
@@ -183,13 +176,13 @@ export function CommandPalette() {
                 value={inputValue}
                 onValueChange={setInputValue}
                 placeholder="type a command or search..."
-                className="flex-1 bg-transparent text-terminal-text-bright font-mono text-sm outline-none placeholder:text-terminal-text/40"
+                className="flex-1 bg-transparent text-terminal-text-bright font-mono text-base sm:text-sm outline-none placeholder:text-terminal-text-muted"
               />
             </div>
 
             {/* Quick-add preview bar */}
             {isQuickAddMode && (
-              <div className="flex items-center gap-2 px-4 py-2 border-b border-terminal-border bg-terminal-bg/50">
+              <div className="flex items-center gap-2 px-4 py-2 border-b border-terminal-border bg-terminal-bg/50 shrink-0">
                 {parsed && (
                   <>
                     <span className="px-2 py-0.5 rounded border border-terminal-blue text-terminal-blue font-mono text-xs font-bold">
@@ -208,29 +201,29 @@ export function CommandPalette() {
                         {parsed.projectQuery} <span className="text-red-400/60">- no match</span>
                       </span>
                     ) : (
-                      <span className="text-terminal-text/40 font-mono text-xs">type project name...</span>
+                      <span className="text-terminal-text-faint font-mono text-xs">type project name...</span>
                     )}
                     {matchedProject && !inputValue.includes('|') && (
-                      <span className="text-terminal-text/40 font-mono text-xs">type | then description</span>
+                      <span className="text-terminal-text-faint font-mono text-xs">type | then description</span>
                     )}
                     {matchedProject && inputValue.includes('|') && !parsed.description && (
-                      <span className="text-terminal-text/40 font-mono text-xs">type description...</span>
+                      <span className="text-terminal-text-faint font-mono text-xs">type description...</span>
                     )}
                     {parsed.description && (
-                      <span className="text-terminal-text/60 font-mono text-xs truncate">
+                      <span className="text-terminal-text-muted font-mono text-xs truncate">
                         | {parsed.description}
                       </span>
                     )}
                   </>
                 )}
                 {!parsed && (
-                  <span className="text-terminal-text/40 font-mono text-xs">type project name after duration...</span>
+                  <span className="text-terminal-text-faint font-mono text-xs">type project name after duration...</span>
                 )}
               </div>
             )}
 
             {/* List */}
-            <Command.List className="max-h-72 overflow-y-auto">
+            <Command.List className="max-h-72 overflow-y-auto min-h-0">
               {/* Quick-add confirm item — only when description is provided */}
               {canSubmit && (
                 <Command.Item
@@ -248,7 +241,7 @@ export function CommandPalette() {
                     style={{ backgroundColor: matchedProject!.color }}
                   />
                   <span className="text-terminal-text-bright">{matchedProject!.name}</span>
-                  <span className="text-terminal-text/60 truncate">| {parsed!.description}</span>
+                  <span className="text-terminal-text-muted truncate">| {parsed!.description}</span>
                   <span className="ml-auto text-terminal-green/60 text-xs">↵ add</span>
                 </Command.Item>
               )}
@@ -270,11 +263,11 @@ export function CommandPalette() {
                       />
                       <span className="text-terminal-text-bright">{project.name}</span>
                       {clientNameById(project.clientId) && (
-                        <span className="text-terminal-text/50 text-xs">
+                        <span className="text-terminal-text-muted text-xs">
                           {clientNameById(project.clientId)}
                         </span>
                       )}
-                      <span className="ml-auto text-terminal-text/30 text-xs">↵ select</span>
+                      <span className="ml-auto text-terminal-text-faint text-xs">↵ select</span>
                     </Command.Item>
                   ))}
                 </Command.Group>
@@ -282,7 +275,7 @@ export function CommandPalette() {
 
               {/* Quick-add hint when no project match yet */}
               {isQuickAddMode && parsed?.projectQuery && projectMatches.length === 0 && (
-                <div className="py-6 text-center font-mono text-sm text-terminal-text/50">
+                <div className="py-6 text-center font-mono text-sm text-terminal-text-muted">
                   no matching projects for "{parsed.projectQuery}"
                 </div>
               )}
@@ -350,7 +343,7 @@ export function CommandPalette() {
                       />
                       <span className="text-terminal-text-bright">{project.name}</span>
                       {clientNameById(project.clientId) && (
-                        <span className="text-terminal-text/50 text-xs">
+                        <span className="text-terminal-text-muted text-xs">
                           {clientNameById(project.clientId)}
                         </span>
                       )}
@@ -360,32 +353,32 @@ export function CommandPalette() {
               )}
 
               {!isQuickAddMode && (
-                <Command.Empty className="py-8 text-center font-mono text-sm text-terminal-text/50">
+                <Command.Empty className="py-8 text-center font-mono text-sm text-terminal-text-muted">
                   no results found_
                 </Command.Empty>
               )}
             </Command.List>
 
             {/* Footer */}
-            <div className="flex items-center gap-4 px-4 py-2 border-t border-terminal-border text-terminal-text/40 font-mono text-xs">
+            <div className="flex items-center gap-4 px-4 py-2 border-t border-terminal-border text-terminal-text-faint font-mono text-xs shrink-0">
               {isQuickAddMode ? (
-                <span className="text-terminal-text/50">
+                <span className="text-terminal-text-muted">
                   syntax:{' '}
                   <span className="text-terminal-blue/60">2h</span>{' '}
-                  <span className="text-terminal-text/50">project</span>{' '}
-                  <span className="text-terminal-text/30">|</span>{' '}
-                  <span className="text-terminal-text/50">description</span>
+                  <span className="text-terminal-text-muted">project</span>{' '}
+                  <span className="text-terminal-text-faint">|</span>{' '}
+                  <span className="text-terminal-text-muted">description</span>
                 </span>
               ) : (
-                <span className="text-terminal-text/50">
+                <span className="text-terminal-text-muted">
                   quick-add:{' '}
                   <span className="text-terminal-blue/60">2h</span>{' '}
-                  <span className="text-terminal-text/50">project</span>{' '}
-                  <span className="text-terminal-text/30">|</span>{' '}
-                  <span className="text-terminal-text/50">description</span>
+                  <span className="text-terminal-text-muted">project</span>{' '}
+                  <span className="text-terminal-text-faint">|</span>{' '}
+                  <span className="text-terminal-text-muted">description</span>
                 </span>
               )}
-              <span className="ml-auto flex items-center gap-3">
+              <span className="ml-auto hidden sm:flex items-center gap-3">
                 <span>
                   <kbd className="px-1 py-0.5 rounded border border-terminal-border text-[10px]">
                     {'↑↓'}
@@ -409,13 +402,6 @@ export function CommandPalette() {
           </div>
         </div>
       </Command.Dialog>
-
-      {/* Success toast */}
-      {successToast && (
-        <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 bg-terminal-bg-light border border-terminal-green rounded-lg px-4 py-3 font-mono text-sm text-terminal-green shadow-lg">
-          {successToast}
-        </div>
-      )}
     </>
   )
 }

@@ -34,8 +34,7 @@ export function TimeGrid({ dates, scheduledByDate, hourHeight, onEntryClick }: T
   return (
     <div
       ref={scrollRef}
-      className="relative overflow-y-auto"
-      style={{ maxHeight: 'calc(100vh - 220px)' }}
+      className="relative overflow-y-auto max-h-[calc(100dvh-300px)] md:max-h-[calc(100dvh-220px)]"
     >
       <div
         className="grid relative"
