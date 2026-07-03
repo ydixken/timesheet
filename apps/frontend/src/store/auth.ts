@@ -38,13 +38,29 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         return
       }
 
-      // OIDC mode
+      // OIDC mode — create the UserManager once and keep the store's access
+      // token in sync with silent renewals. Without this, `accessToken` is
+      // captured once here and goes stale after ~5 min, so every subsequent API
+      // call sends an expired token and 401s (the dashboard then silently keeps
+      // showing whatever loaded first).
       const oidc = config.oidc!
-      userManager = createUserManager({
-        authority: oidc.issuerUrl,
-        clientId: oidc.clientId,
-        redirectUri: `${window.location.origin}/auth/callback`,
-      })
+      if (!userManager) {
+        userManager = createUserManager({
+          authority: oidc.issuerUrl,
+          clientId: oidc.clientId,
+          redirectUri: `${window.location.origin}/auth/callback`,
+        })
+        // Fires on initial load and on every automaticSilentRenew.
+        userManager.events.addUserLoaded((oidcUser) => {
+          set({ accessToken: oidcUser.access_token })
+        })
+        userManager.events.addUserUnloaded(() => {
+          set({ accessToken: null })
+        })
+        userManager.events.addSilentRenewError(() => {
+          set({ accessToken: null })
+        })
+      }
 
       // Handle callback path
       if (window.location.pathname === '/auth/callback') {
